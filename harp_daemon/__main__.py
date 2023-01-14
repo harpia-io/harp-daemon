@@ -48,8 +48,8 @@ def schedule_jobs():
     scheduler.configure(timezone=utc)
     scheduler.start()
     scheduler.add_job(scheduler_processor, trigger='interval', seconds=10)
-    scheduler.add_job(assign_processor, trigger='interval', seconds=30)
-    scheduler.add_job(alert_resubmit_processor, trigger='interval', seconds=60)
+    # scheduler.add_job(assign_processor, trigger='interval', seconds=30)
+    # scheduler.add_job(alert_resubmit_processor, trigger='interval', seconds=60)
     logging.getLogger(settings.SERVICE_NAME).setLevel(logging.WARNING)
 
 

@@ -14,7 +14,7 @@ jobs:
     working_directory: ~/workspace
     environment:
       SERVICE_NAME: harp-daemon
-      SERVICE_VERSION: v2.0.27
+      SERVICE_VERSION: v2.0.28
       SERVICE_NAMESPACE: dev
     steps:
       - checkout
