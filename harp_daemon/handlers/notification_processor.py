@@ -70,9 +70,12 @@ class NotificationDaemon(object):
             return False
 
     def get_assign_details(self):
-        Assign.get_assign_info(event_id=self.notification['exist_alert_body']['id'])
+        log.info(msg=f"AlertID to get assign info: {self.notification['exist_alert_body']['id']}")
 
         get_assign = Assign.get_assign_info(event_id=self.notification['exist_alert_body']['id'])
+
+        log.info(msg=f"Get assign info: {get_assign}")
+
         exist_assign = [single_assign.json() for single_assign in get_assign][0]
 
         log.debug(
