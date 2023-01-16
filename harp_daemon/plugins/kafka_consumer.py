@@ -5,6 +5,7 @@ import ujson as json
 from harp_daemon.worker import ProcessNotification
 from harp_daemon.handlers.auto_resolve import AutoResolve
 from opentelemetry.instrumentation.confluent_kafka import ConfluentKafkaInstrumentor
+import traceback
 
 log = service_logger()
 
@@ -47,7 +48,10 @@ class ProcessMessage(object):
                 msg=f"Consumed message from Kafka\nparsed_json: {parsed_json}"
             )
 
-            ProcessNotification(notification=parsed_json).main()
+            try:
+                ProcessNotification(notification=parsed_json).main()
+            except IndexError as err:
+                log.error(msg=f"Failed to process alert\nIncoming json: {parsed_json}\nError: {err}. Stack: {traceback.format_exc()}")
 
         return consumer
 
@@ -94,7 +98,10 @@ class AutoResolveMessage(object):
                 extra={"tags": {}}
             )
 
-            AutoResolve(alert_ids=parsed_json['alert_ids'], event_id=parsed_json['event_id']).process_resolve()
+            try:
+                AutoResolve(alert_ids=parsed_json['alert_ids'], event_id=parsed_json['event_id']).process_resolve()
+            except IndexError as err:
+                log.error(msg=f"Failed to Auto Resolve alert\nIncoming json: {parsed_json}\nError: {err}. Stack: {traceback.format_exc()}")
 
         return consumer
 
