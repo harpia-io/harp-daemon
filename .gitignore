@@ -1,0 +1,6 @@
+/venv/
+.idea/
+/harp_environment.egg-info/
+/dist/
+/build/
+.harp_daemon/__pycache__/
