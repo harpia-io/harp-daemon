@@ -1,4 +1,4 @@
-## Harp Daemon Service
+## Open Source Incident Management system - Harp Daemon Service
 
 ### Full info about Project - https://github.com/harpia-io/harpia
 
