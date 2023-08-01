@@ -9,8 +9,10 @@ from datetime import datetime
 import uuid
 import traceback
 import ujson as json
+from harp_daemon.plugins.tracer import get_tracer
 
 log = service_logger()
+tracer = get_tracer().get_tracer(__name__)
 
 
 class AlertResubmit(object):
@@ -21,16 +23,19 @@ class AlertResubmit(object):
 		self.single_event = None
 		self.exist_notification = None
 
+	@tracer.start_as_current_span("resubmit_event")
 	def resubmit_event(self):
 		event = Resubmit(alert_id=self.alert_id, event_id=self.event_id)
 		event.process_resubmit()
 
+	@tracer.start_as_current_span("get_exist_notification")
 	def get_exist_notification(self):
 		get_notification = Notifications.get_notification_by_id(event_id=self.alert_id)
 		exist_notification = [single_notification.json() for single_notification in get_notification][0]
 
 		return exist_notification
 
+	@tracer.start_as_current_span("get_procedure")
 	def get_procedure(self, procedure_id):
 		# log.debug(msg=f"Get exist procedure: {procedure_id}", extra={"event_id": self.event_id})
 		get_procedure = Procedures.get_procedure_by_id(procedure_id=procedure_id)
@@ -44,6 +49,7 @@ class AlertResubmit(object):
 
 		return exist_procedure
 
+	@tracer.start_as_current_span("get_history")
 	def get_history(self):
 		get_history = NotificationHistory.get_history_by_id(event_id=self.alert_id)
 		last_event_history = [single_history.json() for single_history in get_history][-1]
@@ -52,6 +58,7 @@ class AlertResubmit(object):
 
 		return last_event_history['time_stamp']
 
+	@tracer.start_as_current_span("check_resubmit")
 	def check_resubmit(self, resubmit_hours):
 		# log.debug(msg=f"Start checking event resubmit - {self.single_event}", extra={"event_id": self.event_id})
 		if resubmit_hours > 0:
@@ -69,6 +76,7 @@ class AlertResubmit(object):
 				# )
 				return True
 
+	@tracer.start_as_current_span("get_resubmit_hours")
 	def get_resubmit_hours(self):
 		# procedure = get_scenario_by_id(scenario_id=self.exist_notification['procedure_id'])
 		procedure = self.get_procedure(procedure_id=self.exist_notification['procedure_id'])
@@ -105,6 +113,7 @@ class AlertResubmit(object):
 			# log.debug(msg=f"Return resubmit hours - {resubmit_hours}", extra={"event_id": self.event_id})
 			return resubmit_hours['resubmit']
 
+	@tracer.start_as_current_span("prepare_resubmit_event")
 	def prepare_resubmit_event(self):
 		resubmit_hours = self.get_resubmit_hours()
 
@@ -112,6 +121,7 @@ class AlertResubmit(object):
 			if self.check_resubmit(resubmit_hours):
 				self.resubmit_event()
 
+	@tracer.start_as_current_span("process_resubmit")
 	def process_resubmit(self):
 		# log.debug(msg=f"Start processing Resubmit")
 		get_active_events = ActiveAlerts.get_all_active_events()
@@ -137,6 +147,7 @@ class AlertResubmit(object):
 
 
 @Prom.ALERT_RESUBMIT_PROCESSOR.time()
+@tracer.start_as_current_span("alert_resubmit_processor")
 def alert_resubmit_processor():
 	event = AlertResubmit()
 	event.process_resubmit()

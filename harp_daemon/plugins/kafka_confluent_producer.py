@@ -5,8 +5,12 @@ from prometheus_client import Summary
 from confluent_kafka import Producer
 import json
 import datetime
+from opentelemetry.instrumentation.confluent_kafka import ConfluentKafkaInstrumentor
+from harp_daemon.plugins.tracer import get_tracer
 
 logger = service_logger()
+tracer = get_tracer().get_tracer(__name__)
+instrumentation = ConfluentKafkaInstrumentor()
 
 
 class KafkaProduceMessages(object):
@@ -26,7 +30,7 @@ class KafkaProduceMessages(object):
 
             producer = Producer(**producer_config)
 
-            return producer
+            return instrumentation.instrument_producer(producer)
         except Exception as err:
             logger.error(
                 msg=f"Can`t connect to Kafka cluster - {KafkaConfig.KAFKA_SERVERS}\nError: {err}\nTrace: {traceback.format_exc()}"
@@ -48,6 +52,7 @@ class KafkaProduceMessages(object):
             logger.debug('Message delivered to {} [{}]'.format(msg.topic(), msg.partition()))
 
     @KAFKA_PRODUCE_MESSAGES.time()
+    @tracer.start_as_current_span("Kafka: produce_message")
     def produce_message(self, topic, message):
         logger.debug(
             msg=f"Start producing message to topic - {topic}\nBody: {message}"

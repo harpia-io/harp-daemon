@@ -5,8 +5,13 @@ from urllib.parse import urlparse
 import traceback
 from base64 import b64encode
 from harp_daemon.tools.prometheus_metrics import Prom
+from harp_daemon.plugins.tracer import get_tracer
+from opentelemetry.instrumentation.requests import RequestsInstrumentor
 
 log = service_logger()
+tracer_get = get_tracer()
+tracer = tracer_get.get_tracer(__name__)
+RequestsInstrumentor().instrument()
 
 
 class GraphAPI(object):
@@ -19,6 +24,7 @@ class GraphAPI(object):
         self.ms_unique_data = ms_unique_data
         self.graph_time_range = graph_time_range or settings.GRAPH['default_time_range']
 
+    @tracer.start_as_current_span("_login")
     def _login(self):
         data_api = {"name": settings.ZABBIX_RENDER_USER, "password": settings.ZABBIX_RENDER_PASS, "enter": "Sign in"}
 
@@ -46,6 +52,7 @@ class GraphAPI(object):
 
         return cookie
 
+    @tracer.start_as_current_span("generate_zabbix_graph")
     def generate_zabbix_graph(self, title, period, zabbix_item_id=None):
         if self.graph_url is None or 'history.php' in self.graph_url or 'screens.php' in self.graph_url or self.graph_url == '':
             img_url = f"http://{self.server}/chart3.php?period={period}&name={title}&graphtype=0&legend=1" \
@@ -70,6 +77,7 @@ class GraphAPI(object):
         return {"res_img": b64encode(res_img).decode(), "img_url": img_url}
 
     @staticmethod
+    @tracer.start_as_current_span("time_period_converter")
     def time_period_converter(period):
         if 'h' in period:
             period = int((period.replace("h", ""))) * 3600
@@ -78,6 +86,7 @@ class GraphAPI(object):
 
         return int(period)
 
+    @tracer.start_as_current_span("get_zabbix_graph")
     def get_zabbix_graph(self, zabbix_item_id=None):
         if self.graph_url:
             received_graph_url = urlparse(self.graph_url)
@@ -104,12 +113,14 @@ class GraphAPI(object):
         return render_zabbix_graph
 
     @staticmethod
+    @tracer.start_as_current_span("add_auth_to_grafana_link")
     def add_auth_to_grafana_link():
         user_pass = b64encode(bytes(settings.GRAFANA_RENDER_USER + ':' + settings.GRAFANA_RENDER_PASS, "utf-8")).decode()
         log.debug(msg=f"Header was created: {user_pass}")
 
         return user_pass
 
+    @tracer.start_as_current_span("render_grafana")
     def render_grafana(self):
         render_grafana_link = self.graph_url.replace("/d/", "/render/d-solo/")
         if 'viewPanel' in render_grafana_link:
@@ -143,6 +154,7 @@ class GraphAPI(object):
             )
 
     @Prom.GRAPH_RENDER_PROCESSOR.time()
+    @tracer.start_as_current_span("get_graph")
     def get_graph(self):
         log.debug(msg=f"Graph URL before render: {self.graph_url}", extra={"tags": {"event_id": self.event_id}})
         if self.graph_url:

@@ -1,15 +1,18 @@
 from harp_daemon.models.notifications import Notifications
 from logger.logging import service_logger
 from harp_daemon.models.active_alerts import ActiveAlerts
-
+from harp_daemon.plugins.tracer import get_tracer
 
 log = service_logger()
+tracer_get = get_tracer()
+tracer = tracer_get.get_tracer(__name__)
 
 
 class ExistEvent(object):
     def __init__(self, notification):
         self.notification = notification
 
+    @tracer.start_as_current_span("get_current_notification")
     def get_current_notification(self):
         """Check if event was registered previously"""
 
@@ -37,5 +40,6 @@ class ExistEvent(object):
 
             return None
 
+    @tracer.start_as_current_span("add_exist_event")
     def add_exist_event(self):
         return self.get_current_notification()

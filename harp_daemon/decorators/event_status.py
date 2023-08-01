@@ -1,9 +1,13 @@
 from logger.logging import service_logger
 from harp_daemon.models.notifications import Notifications
+from harp_daemon.plugins.tracer import get_tracer
 
 log = service_logger()
+tracer_get = get_tracer()
+tracer = tracer_get.get_tracer(__name__)
 
 
+@tracer.start_as_current_span("event_in_db")
 def event_in_db(notification):
     get_notification = Notifications.get_notification(
         studio=notification['studio'],
@@ -24,6 +28,7 @@ def event_in_db(notification):
         return {}
 
 
+@tracer.start_as_current_span("check_if_alert_ok")
 def check_if_alert_ok(notification):
     """
     Alert status:

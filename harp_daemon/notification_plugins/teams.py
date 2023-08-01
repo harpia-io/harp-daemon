@@ -6,8 +6,10 @@ from harp_daemon.notification_processors.teams_processor import GenerateAutoTeam
 from harp_daemon.handlers.env_processor import env_id_to_name
 from harp_daemon.tools.prometheus_metrics import Prom
 from harp_daemon.models.notification_history import NotificationHistory
+from harp_daemon.plugins.tracer import get_tracer
 
 log = service_logger()
+tracer = get_tracer().get_tracer(__name__)
 
 
 class TeamsHandler(object):
@@ -16,11 +18,13 @@ class TeamsHandler(object):
         self.action = action
         self.notification_type = 'teams'
 
+    @tracer.start_as_current_span("define_notification_type")
     def define_notification_type(self):
         notification_type = settings.NOTIFICATION_TYPE_MAPPING[self.notification_type]
 
         return notification_type
 
+    @tracer.start_as_current_span("active_alerts_template")
     def active_alerts_template(self):
         data = {
             'alert_id': self.notification['exist_alert_body']['id'],
@@ -47,6 +51,7 @@ class TeamsHandler(object):
 
         return data
 
+    @tracer.start_as_current_span("update_alerts_template")
     def update_alerts_template(self):
         data = {
             'severity': self.notification['severity'],
@@ -62,12 +67,14 @@ class TeamsHandler(object):
 
         return data
 
+    @tracer.start_as_current_span("define_rendered_image")
     def define_rendered_image(self):
         image = json.loads(self.notification['exist_alert_body']['image'])
         # log.debug(msg=f"Image: {image}")
         if image:
             return image
 
+    @tracer.start_as_current_span("process_teams")
     def process_teams(self, action, teams_id=None, description=None):
         if teams_id is None:
             teams_id = self.notification['procedure']['ids']
@@ -98,6 +105,7 @@ class TeamsHandler(object):
             process_event.close_chat_comment()
 
     @Prom.TEAMS_CREATE_NOTIFICATION.time()
+    @tracer.start_as_current_span("create_event")
     def create_event(self):
         self.process_teams(action='create_event')
         ActiveAlerts.add_new_event(data=self.active_alerts_template())
@@ -109,6 +117,7 @@ class TeamsHandler(object):
         )
 
     @Prom.TEAMS_UPDATE_NOTIFICATION.time()
+    @tracer.start_as_current_span("update_event")
     def update_event(self):
         self.process_teams(action='update_event')
         ActiveAlerts.update_exist_event(data=self.update_alerts_template(), event_id=self.notification['exist_alert_body']['id'])
@@ -120,6 +129,7 @@ class TeamsHandler(object):
         )
 
     @Prom.TEAMS_RESUBMIT_NOTIFICATION.time()
+    @tracer.start_as_current_span("resubmit_event")
     def resubmit_event(self):
         self.process_teams(action='still_exist')
         ActiveAlerts.update_exist_event(data=self.update_alerts_template(), event_id=self.notification['exist_alert_body']['id'])
@@ -131,6 +141,7 @@ class TeamsHandler(object):
         )
 
     @Prom.TEAMS_CLOSE_NOTIFICATION.time()
+    @tracer.start_as_current_span("close_event")
     def close_event(self):
         self.process_teams(action='close_event')
         ActiveAlerts.delete_exist_event(event_id=self.notification['exist_alert_body']['id'])
@@ -141,6 +152,7 @@ class TeamsHandler(object):
             notification_action="Closed Teams event"
         )
 
+    @tracer.start_as_current_span("track_statistics")
     def track_statistics(self):
         if settings.DEEP_REPORTING == "true":
             if self.notification['additional_fields']:
@@ -175,6 +187,7 @@ class TeamsHandler(object):
             notification_status=settings.NOTIFICATION_STATUS_MAPPING[self.notification['notification_status']],
         ).inc(1)
 
+    @tracer.start_as_current_span("process_alert")
     def process_alert(self):
         self.track_statistics()
 

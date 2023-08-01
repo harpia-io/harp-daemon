@@ -10,8 +10,10 @@ import traceback
 from harp_daemon.models.notification_history import NotificationHistory
 from harp_daemon.tools.prometheus_metrics import Prom
 from harp_daemon.handlers.get_bot_config import bot_config
+from harp_daemon.plugins.tracer import get_tracer
 
 log = service_logger()
+tracer = get_tracer().get_tracer(__name__)
 
 
 class JiraHandler(object):
@@ -21,11 +23,13 @@ class JiraHandler(object):
         self.recipient_id = None
         self.notification_type = 'jira'
 
+    @tracer.start_as_current_span("define_notification_type")
     def define_notification_type(self):
         notification_type = settings.NOTIFICATION_TYPE_MAPPING[self.notification_type]
 
         return notification_type
 
+    @tracer.start_as_current_span("active_alerts_template")
     def active_alerts_template(self):
         data = {
             'alert_id': self.notification['exist_alert_body']['id'],
@@ -52,6 +56,7 @@ class JiraHandler(object):
 
         return data
 
+    @tracer.start_as_current_span("update_alerts_template")
     def update_alerts_template(self):
         data = {
             'severity': self.notification['severity'],
@@ -67,11 +72,13 @@ class JiraHandler(object):
 
         return data
 
+    @tracer.start_as_current_span("define_rendered_image")
     def define_rendered_image(self):
         image = json.loads(self.notification['exist_alert_body']['image'])
         if image:
             return image
 
+    @tracer.start_as_current_span("process_jira")
     def process_jira(self, action, recipient_id=None, description=None):
         if recipient_id is None:
             recipient_id = self.notification['exist_alert_body']['recipient_id']
@@ -117,6 +124,7 @@ class JiraHandler(object):
         return self.recipient_id
 
     @Prom.JIRA_CREATE_NOTIFICATION.time()
+    @tracer.start_as_current_span("create_event")
     def create_event(self):
         recipient_id = self.process_jira(action='create_event')
         ActiveAlerts.add_new_event(data=self.active_alerts_template())
@@ -128,6 +136,7 @@ class JiraHandler(object):
         )
 
     @Prom.JIRA_UPDATE_NOTIFICATION.time()
+    @tracer.start_as_current_span("update_event")
     def update_event(self):
         recipient_id = self.process_jira(action='update_event')
         ActiveAlerts.update_exist_event(data=self.update_alerts_template(), event_id=self.notification['exist_alert_body']['id'])
@@ -139,6 +148,7 @@ class JiraHandler(object):
         )
 
     @Prom.JIRA_RESUBMIT_NOTIFICATION.time()
+    @tracer.start_as_current_span("resubmit_event")
     def resubmit_event(self):
         recipient_id = self.process_jira(action='still_exist')
         ActiveAlerts.update_exist_event(data=self.update_alerts_template(), event_id=self.notification['exist_alert_body']['id'])
@@ -150,6 +160,7 @@ class JiraHandler(object):
         )
 
     @Prom.JIRA_CLOSE_NOTIFICATION.time()
+    @tracer.start_as_current_span("close_event")
     def close_event(self):
         recipient_id = self.process_jira(action='close_event')
         ActiveAlerts.delete_exist_event(event_id=self.notification['exist_alert_body']['id'])
@@ -160,6 +171,7 @@ class JiraHandler(object):
             notification_action="Closed JIRA event"
         )
 
+    @tracer.start_as_current_span("track_statistics")
     def track_statistics(self):
         if settings.DEEP_REPORTING == "true":
             if self.notification['additional_fields']:
@@ -194,6 +206,7 @@ class JiraHandler(object):
             notification_status=settings.NOTIFICATION_STATUS_MAPPING[self.notification['notification_status']],
         ).inc(1)
 
+    @tracer.start_as_current_span("process_alert")
     def process_alert(self):
         self.track_statistics()
 
@@ -220,6 +233,7 @@ class CreateJIRA(object):
         self.url_to_jira = None
         self.bot_config = bot_config(bot_name='jira')
 
+    @tracer.start_as_current_span("add_event_to_history")
     def add_event_to_history(self):
         data = {
             "alert_id": self.event_body['alert_details']['id'],
@@ -229,6 +243,7 @@ class CreateJIRA(object):
 
         NotificationHistory.add_new_event(data=data)
 
+    @tracer.start_as_current_span("create_jira")
     def create_jira(self):
         try:
             process = CreateJiraFromEvent(

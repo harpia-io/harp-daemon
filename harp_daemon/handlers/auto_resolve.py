@@ -3,8 +3,11 @@ from harp_daemon.models.active_alerts import ActiveAlerts
 from harp_daemon.models.notifications import Notifications
 from harp_daemon.models.notification_history import NotificationHistory
 import traceback
+from harp_daemon.plugins.tracer import get_tracer
 
 log = service_logger()
+tracer_get = get_tracer()
+tracer = tracer_get.get_tracer(__name__)
 
 
 class AutoResolve(object):
@@ -13,10 +16,12 @@ class AutoResolve(object):
 		self.event_id = event_id
 
 	@staticmethod
+	@tracer.start_as_current_span("remove_from_active_alerts")
 	def remove_from_active_alerts(single_alert):
 		ActiveAlerts.delete_exist_event(event_id=single_alert)
 
 	@staticmethod
+	@tracer.start_as_current_span("update_notifications")
 	def update_notifications(single_alert):
 		data = {
 			'severity': 0,
@@ -28,6 +33,7 @@ class AutoResolve(object):
 		)
 
 	@staticmethod
+	@tracer.start_as_current_span("update_notification_history")
 	def update_notification_history(single_alert):
 		data = {
 			"alert_id": single_alert,
@@ -36,6 +42,7 @@ class AutoResolve(object):
 		}
 		NotificationHistory.add_new_event(data=data)
 
+	@tracer.start_as_current_span("process_resolve")
 	def process_resolve(self):
 		try:
 			for single_alert in self.alert_ids:

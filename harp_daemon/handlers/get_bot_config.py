@@ -2,10 +2,16 @@ import requests
 from logger.logging import service_logger
 import harp_daemon.settings as settings
 import traceback
+from harp_daemon.plugins.tracer import get_tracer
+from opentelemetry.instrumentation.requests import RequestsInstrumentor
 
 log = service_logger()
+tracer_get = get_tracer()
+tracer = tracer_get.get_tracer(__name__)
+RequestsInstrumentor().instrument()
 
 
+@tracer.start_as_current_span("bot_config")
 def bot_config(bot_name):
     url = f"{settings.BOTS_SERVICE}/{bot_name}"
     headers = {

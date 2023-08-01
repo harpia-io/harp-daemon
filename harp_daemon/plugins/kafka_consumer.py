@@ -8,6 +8,7 @@ from opentelemetry.instrumentation.confluent_kafka import ConfluentKafkaInstrume
 import traceback
 
 log = service_logger()
+instrumentation = ConfluentKafkaInstrumentor()
 
 
 class ProcessMessage(object):
@@ -19,7 +20,6 @@ class ProcessMessage(object):
         Start consumer
         """
         log.info(msg=f"Starting consumer - ProcessMessage")
-        instrumentation = ConfluentKafkaInstrumentor()
 
         consumer = Consumer(
             {
@@ -66,8 +66,6 @@ class AutoResolveMessage(object):
         """
 
         log.debug(msg=f"Starting consumer - AutoResolveMessage")
-
-        instrumentation = ConfluentKafkaInstrumentor()
 
         consumer = Consumer(
             {
@@ -128,6 +126,8 @@ class KafkaConsumeMessages(object):
                 'offset.store.method': 'broker'
             }
         )
+
+        consumer = instrumentation.instrument_consumer(consumer)
 
         consumer.subscribe([self.kafka_topic])
 

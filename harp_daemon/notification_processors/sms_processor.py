@@ -3,8 +3,10 @@ import harp_daemon.settings as settings
 import requests
 import ujson as json
 import traceback
+from harp_daemon.plugins.tracer import get_tracer
 
 log = service_logger()
+tracer = get_tracer().get_tracer(__name__)
 
 
 class GenerateAutoSMS(object):
@@ -20,11 +22,13 @@ class GenerateAutoSMS(object):
 		self.description = description
 		self.studio = studio
 
+	@tracer.start_as_current_span("define_subject_name")
 	def define_subject_name(self):
 		subject_name = f"{self.alert_name}"
 
 		return subject_name
 
+	@tracer.start_as_current_span("define_harp_event_url")
 	def define_harp_event_url(self):
 		if settings.DOCKER_SERVER_IP:
 			notification_url = f"http://{settings.DOCKER_SERVER_IP}/#/notifications-panel?notification_id={self.alert_id}"
@@ -33,6 +37,7 @@ class GenerateAutoSMS(object):
 
 		return notification_url
 
+	@tracer.start_as_current_span("_prepare_additional_fields")
 	def _prepare_additional_fields(self):
 		additional_fields_lst = []
 
@@ -55,6 +60,7 @@ class GenerateAutoSMS(object):
 
 		return '\n'.join(additional_fields_lst)
 
+	@tracer.start_as_current_span("prepare_create_message")
 	def prepare_create_message(self, action):
 		if action == 'create' or action == 'update':
 			msg = f"Alert triggered - {self.define_subject_name()}"
@@ -65,6 +71,7 @@ class GenerateAutoSMS(object):
 
 		return msg
 
+	@tracer.start_as_current_span("sms_processor")
 	def sms_processor(self, action):
 		for single_phone in self.phone_numbers:
 			event_body = {
@@ -97,24 +104,28 @@ class GenerateAutoSMS(object):
 			except Exception as err:
 				log.error(msg=f"Error: {err}, Stack: {traceback.format_exc()}")
 
+	@tracer.start_as_current_span("create_chat")
 	def create_chat(self):
 		if settings.SMS_ACTIVE == "false":
 			return 'fake_recipient_id'
 
 		self.sms_processor(action='create')
 
+	@tracer.start_as_current_span("update_chat")
 	def update_chat(self):
 		if settings.SMS_ACTIVE == "false":
 			return 'fake_recipient_id'
 
 		self.sms_processor(action='update')
 
+	@tracer.start_as_current_span("still_exist_chat")
 	def still_exist_chat(self):
 		if settings.SMS_ACTIVE == "false":
 			return 'fake_recipient_id'
 
 		self.sms_processor(action='still_exist')
 
+	@tracer.start_as_current_span("close_chat_comment")
 	def close_chat_comment(self):
 		if settings.SMS_ACTIVE == "false":
 			return 'fake_recipient_id'

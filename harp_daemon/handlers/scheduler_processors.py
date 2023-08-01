@@ -1,10 +1,11 @@
 import traceback
-
+from harp_daemon.plugins.tracer import get_tracer
 from logger.logging import service_logger
 from datetime import datetime, timedelta
 from harp_daemon.models.notification_scheduler import NotificationScheduler
 
 log = service_logger()
+tracer = get_tracer().get_tracer(__name__)
 
 
 class Scheduler(object):
@@ -16,6 +17,7 @@ class Scheduler(object):
 		self.action_trigger_delay = action_trigger_delay
 		self.action = action
 
+	@tracer.start_as_current_span("calculate_time_shift")
 	def calculate_time_shift(self):
 		if 'm' in str(self.action_trigger_delay):
 			time_shift = datetime.utcnow() + timedelta(minutes=int(self.action_trigger_delay.replace('m', '')))
@@ -30,6 +32,7 @@ class Scheduler(object):
 
 		return time_shift
 
+	@tracer.start_as_current_span("add_new_record")
 	def add_new_record(self):
 		body = {
 			'alert_id': self.alert_id,
@@ -44,9 +47,11 @@ class Scheduler(object):
 		except Exception as err:
 			log.error(msg=f"Can`t process Scheduler request to add new record - {body}\nError: {err}")
 
+	@tracer.start_as_current_span("delete_existing_record")
 	def delete_existing_record(self):
 		NotificationScheduler.delete_exist_event(alert_id=self.alert_id)
 
+	@tracer.start_as_current_span("main")
 	def main(self):
 		if self.action_trigger_delay == "0s":
 			return True

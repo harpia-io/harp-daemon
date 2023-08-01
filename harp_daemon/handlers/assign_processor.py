@@ -2,8 +2,11 @@ from logger.logging import service_logger
 from harp_daemon.models.assigne import Assign
 import harp_daemon.notification_plugins as handlers
 import ujson as json
+from harp_daemon.plugins.tracer import get_tracer
 
 log = service_logger()
+tracer_get = get_tracer()
+tracer = tracer_get.get_tracer(__name__)
 
 
 class AssignProcessor(object):
@@ -11,67 +14,80 @@ class AssignProcessor(object):
 		self.notification = notification
 		self.recipient_id = None
 
+	@tracer.start_as_current_span("email_recipients")
 	def email_recipients(self):
 		recipients = json.loads(self.notification['exist_assign']['notification_fields'])['recipients']
 
 		return {'recipients': recipients}
 
+	@tracer.start_as_current_span("define_recipient_id")
 	def define_recipient_id(self):
 		recipient_id = self.notification['exist_assign']['recipient_id']
 
 		return recipient_id
 
+	@tracer.start_as_current_span("define_jira_recipient_id")
 	def define_jira_recipient_id(self):
 		recipient_id = json.loads(self.notification['exist_assign']['notification_fields'])['project']
 
 		return recipient_id
 
+	@tracer.start_as_current_span("define_skype_recipient_id")
 	def define_skype_recipient_id(self):
 		recipient_id = json.loads(self.notification['exist_assign']['notification_fields'])['ids']
 
 		return recipient_id
 
+	@tracer.start_as_current_span("define_teams_recipient_id")
 	def define_teams_recipient_id(self):
 		recipient_id = json.loads(self.notification['exist_assign']['notification_fields'])['ids']
 
 		return recipient_id
 
+	@tracer.start_as_current_span("define_telegram_recipient_id")
 	def define_telegram_recipient_id(self):
 		recipient_id = json.loads(self.notification['exist_assign']['notification_fields'])['ids']
 
 		return recipient_id
 
+	@tracer.start_as_current_span("define_slack_recipient_id")
 	def define_slack_recipient_id(self):
 		recipient_id = json.loads(self.notification['exist_assign']['notification_fields'])['ids']
 
 		return recipient_id
 
+	@tracer.start_as_current_span("define_webhook_recipient_id")
 	def define_webhook_recipient_id(self):
 		recipient_id = json.loads(self.notification['exist_assign']['notification_fields'])['webhooks']
 
 		return recipient_id
 
+	@tracer.start_as_current_span("define_pagerduty_recipient_id")
 	def define_pagerduty_recipient_id(self):
 		api_key = json.loads(self.notification['exist_assign']['notification_fields'])['ids']
 		recipient_id = self.notification['exist_assign']['recipient_id']
 
 		return recipient_id, api_key
 
+	@tracer.start_as_current_span("define_sms_recipient_id")
 	def define_sms_recipient_id(self):
 		recipient_id = json.loads(self.notification['exist_assign']['notification_fields'])['ids']
 
 		return recipient_id
 
+	@tracer.start_as_current_span("define_voice_recipient_id")
 	def define_voice_recipient_id(self):
 		recipient_id = json.loads(self.notification['exist_assign']['notification_fields'])['ids']
 
 		return recipient_id
 
+	@tracer.start_as_current_span("define_signl4_recipient_id")
 	def define_signl4_recipient_id(self):
 		recipient_id = json.loads(self.notification['exist_assign']['notification_fields'])['ids']
 
 		return recipient_id
 
+	@tracer.start_as_current_span("process_assign")
 	def process_assign(self, notification_action):
 		"""
 		"email": 2,

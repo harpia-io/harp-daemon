@@ -2,9 +2,11 @@ from logger.logging import service_logger
 import datetime
 from harp_daemon.plugins.db import Session, Base
 import sqlalchemy
+from harp_daemon.plugins.tracer import get_tracer
 
 log = service_logger()
 session = Session()
+tracer = get_tracer().get_tracer(__name__)
 
 
 class Assign(Base):
@@ -38,12 +40,14 @@ class Assign(Base):
         }
 
     @classmethod
+    @tracer.start_as_current_span("get_all_assign")
     def get_all_assign(cls):
         query = session.query(cls).all()
 
         return query
 
     @classmethod
+    @tracer.start_as_current_span("get_assign_info")
     def get_assign_info(cls, event_id: int):
         query = session.query(cls).filter(
             cls.alert_id == event_id
@@ -52,6 +56,7 @@ class Assign(Base):
         return query
 
     @classmethod
+    @tracer.start_as_current_span("update_exist_event")
     def update_exist_event(cls, event_id: int, data: dict):
         session.query(cls).filter(
             cls.alert_id == event_id
@@ -60,6 +65,7 @@ class Assign(Base):
         session.commit()
 
     @classmethod
+    @tracer.start_as_current_span("delete_assign")
     def delete_assign(cls, alert_id: str):
         session.query(cls).filter(
             cls.alert_id == alert_id

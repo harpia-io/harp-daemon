@@ -4,9 +4,11 @@ import ujson as json
 from harp_daemon.plugins.db import Session, Base
 import sqlalchemy
 from retry_decorator import *
+from harp_daemon.plugins.tracer import get_tracer
 
 log = service_logger()
 session = Session()
+tracer = get_tracer().get_tracer(__name__)
 
 
 class Notifications(Base):
@@ -72,6 +74,7 @@ class Notifications(Base):
         }
 
     @classmethod
+    @tracer.start_as_current_span("get_notification")
     def get_notification(cls, ms_alert_id, alert_name, source, studio, ms, object_name):
         session.commit()
         queries = session.query(cls).filter(
@@ -86,6 +89,7 @@ class Notifications(Base):
         return queries
 
     @classmethod
+    @tracer.start_as_current_span("get_notification_by_id")
     def get_notification_by_id(cls, event_id):
         session.commit()
         queries = session.query(cls).filter(
@@ -95,6 +99,7 @@ class Notifications(Base):
         return queries
 
     @classmethod
+    @tracer.start_as_current_span("get_active_event_by_environment")
     def get_active_event_by_environment(cls, environment_id):
         session.commit()
         queries = session.query(cls).filter(
@@ -104,6 +109,7 @@ class Notifications(Base):
         return queries
 
     @classmethod
+    @tracer.start_as_current_span("update_exist_event")
     @retry(Exception, tries=3, timeout_secs=0.1)
     def update_exist_event(cls, event_id: int, data: dict):
         try:
@@ -117,6 +123,7 @@ class Notifications(Base):
             log.error(msg=f"Cannot update exist event in Notifications - {err}\nalert_id: {event_id}\nData: {data}")
 
     @classmethod
+    @tracer.start_as_current_span("add_new_event")
     def add_new_event(cls, data: dict):
         notification = Notifications(**data)
         try:
@@ -129,6 +136,7 @@ class Notifications(Base):
         return notification.json()
 
     @classmethod
+    @tracer.start_as_current_span("delete_notification")
     def delete_notification(cls, notification_id: int):
         try:
             session.query(cls).filter(

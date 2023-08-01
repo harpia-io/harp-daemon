@@ -2,9 +2,11 @@ from logger.logging import service_logger
 import datetime
 from harp_daemon.plugins.db import Session, Base
 import sqlalchemy
+from harp_daemon.plugins.tracer import get_tracer
 
 log = service_logger()
 session = Session()
+tracer = get_tracer().get_tracer(__name__)
 
 
 class NotificationHistory(Base):
@@ -27,6 +29,7 @@ class NotificationHistory(Base):
         }
 
     @classmethod
+    @tracer.start_as_current_span("get_reopen_history")
     def get_reopen_history(cls, alert_id):
         time_shift = datetime.datetime.utcnow() - datetime.timedelta(minutes=60)
 
@@ -41,6 +44,7 @@ class NotificationHistory(Base):
         return len(reopen_count)
 
     @classmethod
+    @tracer.start_as_current_span("update_alert_history")
     def update_alert_history(cls, alert_id, notification_output, notification_action):
         data = {
             "alert_id": alert_id,
@@ -50,6 +54,7 @@ class NotificationHistory(Base):
         cls.add_new_event(data=data)
 
     @classmethod
+    @tracer.start_as_current_span("add_new_event")
     def add_new_event(cls, data: dict):
         try:
             notification = NotificationHistory(**data)
@@ -61,6 +66,7 @@ class NotificationHistory(Base):
             log.error(msg=f"Cannot add new event to Notification History - {err}\nData: {data}")
 
     @classmethod
+    @tracer.start_as_current_span("update_exist_event")
     def update_exist_event(cls, event_id: int, data: dict):
         try:
             session.query(cls).filter(
@@ -73,6 +79,7 @@ class NotificationHistory(Base):
             log.error(msg=f"Cannot update exist event in Notification History - {err}\nData: {data}")
 
     @classmethod
+    @tracer.start_as_current_span("delete_exist_event")
     def delete_exist_event(cls, event_id: int):
         try:
             session.query(cls).filter(
@@ -85,6 +92,7 @@ class NotificationHistory(Base):
             log.error(msg=f"Cannot delete exist event from Notification History - {err}\nEvent ID: {event_id}")
 
     @classmethod
+    @tracer.start_as_current_span("get_history_by_id")
     def get_history_by_id(cls, event_id):
         queries = session.query(cls).filter(
             cls.alert_id == event_id

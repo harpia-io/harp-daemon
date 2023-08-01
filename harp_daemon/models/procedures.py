@@ -1,8 +1,10 @@
 from harp_daemon.db import db
 from logger.logging import service_logger
 import datetime
+from harp_daemon.plugins.tracer import get_tracer
 
 log = service_logger()
+tracer = get_tracer().get_tracer(__name__)
 
 
 class Procedures(db.Model):
@@ -58,6 +60,7 @@ class Procedures(db.Model):
         }
 
     @classmethod
+    @tracer.start_as_current_span("get_procedure")
     def get_procedure(cls, studio_id, procedure_name):
         db.session.commit()
         queries = cls.query.filter_by(studio_id=studio_id, name=procedure_name).all()
@@ -65,6 +68,7 @@ class Procedures(db.Model):
         return queries
 
     @classmethod
+    @tracer.start_as_current_span("get_procedure_by_id")
     def get_procedure_by_id(cls, procedure_id):
         db.session.commit()
         queries = cls.query.filter_by(id=procedure_id).all()

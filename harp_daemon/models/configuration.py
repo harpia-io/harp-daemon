@@ -1,8 +1,9 @@
 from harp_daemon.db import db
 from logger.logging import service_logger
-import datetime
+from harp_daemon.plugins.tracer import get_tracer
 
 log = service_logger()
+tracer = get_tracer().get_tracer(__name__)
 
 
 class Configuration(db.Model):
@@ -19,6 +20,7 @@ class Configuration(db.Model):
         }
 
     @classmethod
+    @tracer.start_as_current_span("get_configuration")
     def get_configuration(cls):
         db.session.commit()
         queries = cls.query.all()

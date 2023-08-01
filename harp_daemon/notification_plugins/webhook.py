@@ -6,8 +6,10 @@ from harp_daemon.notification_processors.webhook_processor import GenerateAutoWe
 from harp_daemon.handlers.env_processor import env_id_to_name
 from harp_daemon.tools.prometheus_metrics import Prom
 from harp_daemon.models.notification_history import NotificationHistory
+from harp_daemon.plugins.tracer import get_tracer
 
 log = service_logger()
+tracer = get_tracer().get_tracer(__name__)
 
 
 class WebhookHandler(object):
@@ -16,11 +18,13 @@ class WebhookHandler(object):
         self.action = action
         self.notification_type = 'webhook'
 
+    @tracer.start_as_current_span("define_notification_type")
     def define_notification_type(self):
         notification_type = settings.NOTIFICATION_TYPE_MAPPING[self.notification_type]
 
         return notification_type
 
+    @tracer.start_as_current_span("active_alerts_template")
     def active_alerts_template(self):
         data = {
             'alert_id': self.notification['exist_alert_body']['id'],
@@ -47,6 +51,7 @@ class WebhookHandler(object):
 
         return data
 
+    @tracer.start_as_current_span("update_alerts_template")
     def update_alerts_template(self):
         data = {
             'severity': self.notification['severity'],
@@ -62,11 +67,13 @@ class WebhookHandler(object):
 
         return data
 
+    @tracer.start_as_current_span("define_rendered_image")
     def define_rendered_image(self):
         image = json.loads(self.notification['exist_alert_body']['image'])
         if image:
             return image
 
+    @tracer.start_as_current_span("process_webhook")
     def process_webhook(self, action, webhook_id=None, description=None):
         if webhook_id is None:
             webhook_id = self.notification['procedure']['webhooks']
@@ -100,6 +107,7 @@ class WebhookHandler(object):
         return result
 
     @Prom.WEBHOOK_CREATE_NOTIFICATION.time()
+    @tracer.start_as_current_span("create_event")
     def create_event(self):
         ActiveAlerts.add_new_event(data=self.active_alerts_template())
 
@@ -112,6 +120,7 @@ class WebhookHandler(object):
         )
 
     @Prom.WEBHOOK_UPDATE_NOTIFICATION.time()
+    @tracer.start_as_current_span("update_event")
     def update_event(self):
         log.debug(
             msg=f"Receive event to update Webhook event\n{self.notification}",
@@ -127,6 +136,7 @@ class WebhookHandler(object):
         # )
 
     @Prom.WEBHOOK_RESUBMIT_NOTIFICATION.time()
+    @tracer.start_as_current_span("resubmit_event")
     def resubmit_event(self):
         log.debug(
             msg=f"Receive event to resubmit Webhook event\n{self.notification}",
@@ -142,6 +152,7 @@ class WebhookHandler(object):
         # )
 
     @Prom.WEBHOOK_CLOSE_NOTIFICATION.time()
+    @tracer.start_as_current_span("close_event")
     def close_event(self):
         ActiveAlerts.delete_exist_event(event_id=self.notification['exist_alert_body']['id'])
 
@@ -161,6 +172,7 @@ class WebhookHandler(object):
         #     notification_action="Closed Webhook event"
         # )
 
+    @tracer.start_as_current_span("track_statistics")
     def track_statistics(self):
         if settings.DEEP_REPORTING == "true":
             if self.notification['additional_fields']:
@@ -195,6 +207,7 @@ class WebhookHandler(object):
             notification_status=settings.NOTIFICATION_STATUS_MAPPING[self.notification['notification_status']],
         ).inc(1)
 
+    @tracer.start_as_current_span("process_alert")
     def process_alert(self):
         self.track_statistics()
 

@@ -5,8 +5,10 @@ import base64
 from skpy import Skype
 import time, os, stat
 from skpy import SkypeAuthException
+from harp_daemon.plugins.tracer import get_tracer
 
 log = service_logger()
+tracer = get_tracer().get_tracer(__name__)
 
 
 class GenerateAutoSkype(object):
@@ -26,6 +28,7 @@ class GenerateAutoSkype(object):
         self.studio = studio
         self.skype = None
 
+    @tracer.start_as_current_span("init_skype_connection")
     def init_skype_connection(self):
         token = f'{settings.SKYPE_TEMP_FILES}/SkypeTokenFile'
         if os.path.exists(token):
@@ -48,14 +51,17 @@ class GenerateAutoSkype(object):
             )
 
     @staticmethod
+    @tracer.start_as_current_span("file_age_in_seconds")
     def file_age_in_seconds(pathname):
         return int(time.time() - os.stat(pathname)[stat.ST_MTIME])
 
+    @tracer.start_as_current_span("define_subject_name")
     def define_subject_name(self):
         subject_name = f"{self.alert_name}"
 
         return subject_name
 
+    @tracer.start_as_current_span("define_harp_event_url")
     def define_harp_event_url(self):
         if settings.DOCKER_SERVER_IP:
             notification_url = f"http://{settings.DOCKER_SERVER_IP}/#/notifications-panel?notification_id={self.alert_id}"
@@ -64,6 +70,7 @@ class GenerateAutoSkype(object):
 
         return notification_url
 
+    @tracer.start_as_current_span("_prepare_additional_fields")
     def _prepare_additional_fields(self):
         additional_fields_lst = []
         exclude_list = ["Action URL", "Note URL", "graph_url"]
@@ -94,6 +101,7 @@ class GenerateAutoSkype(object):
 
         return '\n'.join(additional_fields_lst)
 
+    @tracer.start_as_current_span("prepare_create_message")
     def prepare_create_message(self, action):
         time_now = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
         if action == 'create' or action == 'update':
@@ -108,6 +116,7 @@ class GenerateAutoSkype(object):
 
         return msg
 
+    @tracer.start_as_current_span("skype_processor")
     def skype_processor(self, action):
         try:
             for single_skype in self.skype_id:
@@ -134,24 +143,28 @@ class GenerateAutoSkype(object):
         except Exception as err:
             log.error(msg=f"Can`t send Skype message: {err}")
 
+    @tracer.start_as_current_span("create_chat")
     def create_chat(self):
         if settings.SKYPE_ACTIVE == "false":
             return 'fake_recipient_id'
 
         self.skype_processor(action='create')
 
+    @tracer.start_as_current_span("update_chat")
     def update_chat(self):
         if settings.SKYPE_ACTIVE == "false":
             return 'fake_recipient_id'
 
         self.skype_processor(action='update')
 
+    @tracer.start_as_current_span("still_exist_chat")
     def still_exist_chat(self):
         if settings.SKYPE_ACTIVE == "false":
             return 'fake_recipient_id'
 
         self.skype_processor(action='still_exist')
 
+    @tracer.start_as_current_span("close_chat_comment")
     def close_chat_comment(self):
         if settings.SKYPE_ACTIVE == "false":
             return 'fake_recipient_id'
@@ -166,6 +179,7 @@ class VerifySkype(object):
         self.action_type = action_type
         self.alert_id = alert_id
 
+    @tracer.start_as_current_span("init_skype_connection")
     def init_skype_connection(self):
         token = f'{settings.SKYPE_TEMP_FILES}/SkypeTokenFile'
 
@@ -178,6 +192,7 @@ class VerifySkype(object):
             tokenFile=token
         )
 
+    @tracer.start_as_current_span("define_harp_event_url")
     def define_harp_event_url(self):
         if settings.DOCKER_SERVER_IP:
             notification_url = f"http://{settings.DOCKER_SERVER_IP}/#/notifications-panel?notification_id={self.alert_id}"
@@ -187,20 +202,24 @@ class VerifySkype(object):
         return notification_url
 
     @staticmethod
+    @tracer.start_as_current_span("file_age_in_seconds")
     def file_age_in_seconds(pathname):
         return int(time.time() - os.stat(pathname)[stat.ST_MTIME])
 
+    @tracer.start_as_current_span("notify_message")
     def notify_message(self):
         msg = f"This is the test message from Harp Event console"
 
         return msg
 
+    @tracer.start_as_current_span("format_skype_id")
     def format_skype_id(self):
         if isinstance(self.skype_id, list):
             return ','.join(self.skype_id)
         else:
             return self.skype_id
 
+    @tracer.start_as_current_span("verify_skype")
     def verify_skype(self):
         try:
             self.init_skype_connection()

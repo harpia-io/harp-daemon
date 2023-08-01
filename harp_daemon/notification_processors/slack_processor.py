@@ -6,8 +6,10 @@ from io import BytesIO
 import requests
 import json
 import traceback
+from harp_daemon.plugins.tracer import get_tracer
 
 log = service_logger()
+tracer = get_tracer().get_tracer(__name__)
 bio = BytesIO()
 
 
@@ -28,11 +30,13 @@ class GenerateAutoSlack(object):
 		self.studio = studio
 		self.bot = None
 
+	@tracer.start_as_current_span("define_subject_name")
 	def define_subject_name(self):
 		subject_name = f"{self.alert_name}"
 
 		return subject_name
 
+	@tracer.start_as_current_span("define_harp_event_url")
 	def define_harp_event_url(self):
 		if settings.DOCKER_SERVER_IP:
 			notification_url = f"http://{settings.DOCKER_SERVER_IP}/#/notifications-panel?notification_id={self.alert_id}"
@@ -41,6 +45,7 @@ class GenerateAutoSlack(object):
 
 		return notification_url
 
+	@tracer.start_as_current_span("prepare_additional_fields")
 	def prepare_additional_fields(self):
 		additional_fields_dict = {}
 		exclude_list = ["Action URL", "Note URL", "graph_url"]
@@ -69,11 +74,13 @@ class GenerateAutoSlack(object):
 
 		return additional_fields_dict
 
+	@tracer.start_as_current_span("prepare_link_to_alert")
 	def prepare_link_to_alert(self):
 		url = self.define_harp_event_url()
 
 		return url
 
+	@tracer.start_as_current_span("prepare_alert_subject")
 	def prepare_alert_subject(self, action):
 		if action == 'create' or action == 'update':
 			msg = f"Alert has been triggered - {self.define_subject_name()}"
@@ -84,6 +91,7 @@ class GenerateAutoSlack(object):
 
 		return msg
 
+	@tracer.start_as_current_span("render_image")
 	def render_image(self):
 		if self.rendered_graph:
 			time_now = datetime.utcnow().strftime('%Y-%m-%d_%H-%M-%S-%f')
@@ -99,6 +107,7 @@ class GenerateAutoSlack(object):
 		else:
 			return None
 
+	@tracer.start_as_current_span("slack_processor")
 	def slack_processor(self, action):
 		for slack_chat in self.slack_id:
 			event_body = {
@@ -135,6 +144,7 @@ class GenerateAutoSlack(object):
 			except Exception as err:
 				log.error(msg=f"Error: {err}, Stack: {traceback.format_exc()}")
 
+	@tracer.start_as_current_span("create_chat")
 	def create_chat(self):
 		if settings.SLACK_ACTIVE == "false":
 			return 'fake_recipient_id'
@@ -146,6 +156,7 @@ class GenerateAutoSlack(object):
 
 		self.slack_processor(action='create')
 
+	@tracer.start_as_current_span("update_chat")
 	def update_chat(self):
 		if settings.SLACK_ACTIVE == "false":
 			return 'fake_recipient_id'
@@ -157,6 +168,7 @@ class GenerateAutoSlack(object):
 
 		self.slack_processor(action='update')
 
+	@tracer.start_as_current_span("still_exist_chat")
 	def still_exist_chat(self):
 		if settings.SLACK_ACTIVE == "false":
 			return 'fake_recipient_id'
@@ -168,6 +180,7 @@ class GenerateAutoSlack(object):
 
 		self.slack_processor(action='still_exist')
 
+	@tracer.start_as_current_span("close_chat_comment")
 	def close_chat_comment(self):
 		if settings.SLACK_ACTIVE == "false":
 			return 'fake_recipient_id'
@@ -187,6 +200,7 @@ class VerifySlack(object):
 		self.action_type = action_type
 		self.alert_id = alert_id
 
+	@tracer.start_as_current_span("define_harp_event_url")
 	def define_harp_event_url(self):
 		if settings.DOCKER_SERVER_IP:
 			notification_url = f"http://{settings.DOCKER_SERVER_IP}/#/notifications-panel?notification_id={self.alert_id}"
@@ -196,11 +210,13 @@ class VerifySlack(object):
 		return notification_url
 
 	@staticmethod
+	@tracer.start_as_current_span("notify_message")
 	def notify_message():
 		msg = f"This is the test message from Harp Event console."
 
 		return msg
 
+	@tracer.start_as_current_span("verify_slack")
 	def verify_slack(self):
 		if self.action_type == 'assign':
 			try:

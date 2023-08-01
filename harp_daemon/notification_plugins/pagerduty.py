@@ -7,8 +7,10 @@ from harp_daemon.handlers.env_processor import env_id_to_name
 from harp_daemon.models.notifications import Notifications
 from harp_daemon.tools.prometheus_metrics import Prom
 from harp_daemon.models.notification_history import NotificationHistory
+from harp_daemon.plugins.tracer import get_tracer
 
 log = service_logger()
+tracer = get_tracer().get_tracer(__name__)
 
 
 class PagerdutyHandler(object):
@@ -18,11 +20,13 @@ class PagerdutyHandler(object):
         self.recipient_id = None
         self.notification_type = 'pagerduty'
 
+    @tracer.start_as_current_span("define_notification_type")
     def define_notification_type(self):
         notification_type = settings.NOTIFICATION_TYPE_MAPPING[self.notification_type]
 
         return notification_type
 
+    @tracer.start_as_current_span("active_alerts_template")
     def active_alerts_template(self):
         data = {
             'alert_id': self.notification['exist_alert_body']['id'],
@@ -49,6 +53,7 @@ class PagerdutyHandler(object):
 
         return data
 
+    @tracer.start_as_current_span("update_alerts_template")
     def update_alerts_template(self):
         data = {
             'severity': self.notification['severity'],
@@ -64,11 +69,13 @@ class PagerdutyHandler(object):
 
         return data
 
+    @tracer.start_as_current_span("define_rendered_image")
     def define_rendered_image(self):
         image = json.loads(self.notification['exist_alert_body']['image'])
         if image:
             return image
 
+    @tracer.start_as_current_span("process_pagerduty")
     def process_pagerduty(self, action, api_key=None, recipient_id=None, description=None):
         if recipient_id is None:
             recipient_id = self.notification['exist_alert_body']['recipient_id']
@@ -114,6 +121,7 @@ class PagerdutyHandler(object):
             return self.recipient_id
 
     @Prom.PD_CREATE_NOTIFICATION.time()
+    @tracer.start_as_current_span("create_event")
     def create_event(self):
         self.process_pagerduty(action='create_event')
         ActiveAlerts.add_new_event(data=self.active_alerts_template())
@@ -125,6 +133,7 @@ class PagerdutyHandler(object):
         )
 
     @Prom.PD_UPDATE_NOTIFICATION.time()
+    @tracer.start_as_current_span("update_event")
     def update_event(self):
         self.process_pagerduty(action='update_event')
         ActiveAlerts.update_exist_event(data=self.update_alerts_template(), event_id=self.notification['exist_alert_body']['id'])
@@ -136,6 +145,7 @@ class PagerdutyHandler(object):
         )
 
     @Prom.PD_CLOSE_NOTIFICATION.time()
+    @tracer.start_as_current_span("close_event")
     def close_event(self):
         self.process_pagerduty(action='close_event')
         ActiveAlerts.delete_exist_event(event_id=self.notification['exist_alert_body']['id'])
@@ -146,6 +156,7 @@ class PagerdutyHandler(object):
             notification_action="Closed PagerDuty event"
         )
 
+    @tracer.start_as_current_span("track_statistics")
     def track_statistics(self):
         if settings.DEEP_REPORTING == "true":
             if self.notification['additional_fields']:
@@ -180,6 +191,7 @@ class PagerdutyHandler(object):
             notification_status=settings.NOTIFICATION_STATUS_MAPPING[self.notification['notification_status']],
         ).inc(1)
 
+    @tracer.start_as_current_span("process_alert")
     def process_alert(self):
         self.track_statistics()
 

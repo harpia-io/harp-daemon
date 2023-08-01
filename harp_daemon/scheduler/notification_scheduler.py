@@ -6,12 +6,17 @@ from harp_daemon.tools.prometheus_metrics import Prom
 import harp_daemon.settings as settings
 import requests
 import traceback
+from opentelemetry.instrumentation.requests import RequestsInstrumentor
+from harp_daemon.plugins.tracer import get_tracer
 
 log = service_logger()
+tracer = get_tracer().get_tracer(__name__)
+RequestsInstrumentor().instrument()
 
 
 class NotificationSchedulerChecker(object):
     @classmethod
+    @tracer.start_as_current_span("get_scenario_by_id")
     def get_scenario_by_id(cls, scenario_id):
         url = f"{settings.SCENARIOS_HOST}/{int(scenario_id)}"
         try:
@@ -36,12 +41,14 @@ class NotificationSchedulerChecker(object):
             return None
 
     @staticmethod
+    @tracer.start_as_current_span("get_scheduled_events")
     def get_scheduled_events():
         events_to_process = NotificationScheduler.get_events_to_process()
 
         return events_to_process
 
     @classmethod
+    @tracer.start_as_current_span("get_recipients")
     def get_recipients(cls, single_notification):
         scenario_id = single_notification['scenario_id']
         channel = single_notification['channel']
@@ -56,10 +63,12 @@ class NotificationSchedulerChecker(object):
                     return single_action['body']['recipients']
 
     @staticmethod
+    @tracer.start_as_current_span("delete_event")
     def delete_event(alert_id):
         NotificationScheduler.delete_exist_event(alert_id=alert_id)
 
     @classmethod
+    @tracer.start_as_current_span("get_notification_body")
     def get_notification_body(cls, single_notification):
         notification_body = {}
         notification = Notifications.get_notification_by_id(event_id=single_notification['alert_id'])
@@ -77,6 +86,7 @@ class NotificationSchedulerChecker(object):
         return notification_body
 
     @classmethod
+    @tracer.start_as_current_span("process_scheduled_events")
     def process_scheduled_events(cls):
         for single_notification in cls.get_scheduled_events():
             try:
@@ -91,5 +101,6 @@ class NotificationSchedulerChecker(object):
 
 
 @Prom.NOTIFICATION_SCHEDULER_PROCESSOR.time()
+@tracer.start_as_current_span("scheduler_processor")
 def scheduler_processor():
     event = NotificationSchedulerChecker.process_scheduled_events()

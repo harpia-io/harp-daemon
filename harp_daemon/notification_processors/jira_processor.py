@@ -6,8 +6,10 @@ import harp_daemon.settings as settings
 import base64
 import traceback
 from harp_daemon.handlers.get_bot_config import bot_config
+from harp_daemon.plugins.tracer import get_tracer
 
 log = service_logger()
+tracer = get_tracer().get_tracer(__name__)
 
 
 class GenerateAutoJira(object):
@@ -29,6 +31,7 @@ class GenerateAutoJira(object):
         self.recipient_id = None
         self.bot_config = bot_config(bot_name='jira')
 
+    @tracer.start_as_current_span("init_jira_connection")
     def init_jira_connection(self):
         os.environ['https_proxy'] = ''
         os.environ['http_proxy'] = ''
@@ -38,11 +41,13 @@ class GenerateAutoJira(object):
             timeout=settings.JIRA_TIMEOUT
         )
 
+    @tracer.start_as_current_span("define_subject_name")
     def define_subject_name(self):
         subject_name = f"[AUTO] {self.alert_name} - {self.object_name}"
 
         return subject_name
 
+    @tracer.start_as_current_span("define_harp_event_url")
     def define_harp_event_url(self):
         if settings.DOCKER_SERVER_IP:
             notification_url = f"http://{settings.DOCKER_SERVER_IP}/#/notifications-panel?notification_id={self.alert_id}"
@@ -51,6 +56,7 @@ class GenerateAutoJira(object):
 
         return notification_url
 
+    @tracer.start_as_current_span("_prepare_additional_fields")
     def _prepare_additional_fields(self):
         additional_fields_lst = []
         exclude_list = ["Action URL", "Note URL", "graph_url"]
@@ -77,6 +83,7 @@ class GenerateAutoJira(object):
 
         return '\n'.join(additional_fields_lst)
 
+    @tracer.start_as_current_span("_prepare_jira")
     def _prepare_jira(self):
         issue_dict = {
             'project': {'key': self.project},
@@ -94,6 +101,7 @@ class GenerateAutoJira(object):
         # )
         return issue_dict
 
+    @tracer.start_as_current_span("_attache_graph")
     def _attache_graph(self, jira_key):
         time_now = datetime.utcnow().strftime('%Y-%m-%d_%H-%M-%S-%f')
         file_img = settings.JIRA_TEMP_FILES + "/{0}.png".format(time_now)
@@ -109,6 +117,7 @@ class GenerateAutoJira(object):
             self.jira.add_attachment(issue=jira_key, attachment=file_img)
             os.remove(file_img)
 
+    @tracer.start_as_current_span("get_issue_status")
     def get_issue_status(self, recipient_id):
         issue = self.jira.issue(id=recipient_id)
 
@@ -116,6 +125,7 @@ class GenerateAutoJira(object):
 
         return issue_status
 
+    @tracer.start_as_current_span("create_jira")
     def create_jira(self, recipient_id):
         if settings.JIRA_ACTIVE == "false":
             return 'fake_recipient_id'
@@ -135,6 +145,7 @@ class GenerateAutoJira(object):
 
         return str(self.recipient_id)
 
+    @tracer.start_as_current_span("update_jira")
     def update_jira(self, recipient_id):
         if settings.JIRA_ACTIVE == "false":
             return 'fake_recipient_id'
@@ -159,6 +170,7 @@ class GenerateAutoJira(object):
 
         return str(self.recipient_id)
 
+    @tracer.start_as_current_span("still_exist_jira")
     def still_exist_jira(self, recipient_id):
         if settings.JIRA_ACTIVE == "false":
             return 'fake_recipient_id'
@@ -177,6 +189,7 @@ class GenerateAutoJira(object):
 
         return str(self.recipient_id)
 
+    @tracer.start_as_current_span("close_jira_comment")
     def close_jira_comment(self, recipient_id):
         if settings.JIRA_ACTIVE == "false":
             return 'fake_recipient_id'
@@ -211,6 +224,7 @@ class CreateJiraFromEvent(object):
         self.additional_fields = additional_fields
         self.bot_config = bot_config(bot_name='jira')
 
+    @tracer.start_as_current_span("init_jira_connection")
     def init_jira_connection(self):
         self.jira = JIRA(
             options={'server': self.bot_config['JIRA_SERVER'], 'verify': False},
@@ -218,11 +232,13 @@ class CreateJiraFromEvent(object):
             timeout=settings.JIRA_TIMEOUT
         )
 
+    @tracer.start_as_current_span("define_subject_name")
     def define_subject_name(self):
         subject_name = f"{self.alert_name} - {self.object_name}"
 
         return subject_name
 
+    @tracer.start_as_current_span("define_harp_event_url")
     def define_harp_event_url(self):
         if settings.DOCKER_SERVER_IP:
             notification_url = f"http://{settings.DOCKER_SERVER_IP}/#/notifications-panel?notification_id={self.alert_id}"
@@ -231,6 +247,7 @@ class CreateJiraFromEvent(object):
 
         return notification_url
 
+    @tracer.start_as_current_span("_prepare_additional_fields")
     def _prepare_additional_fields(self):
         additional_fields_lst = []
         exclude_list = ["Action URL", "Note URL", "graph_url"]
@@ -260,6 +277,7 @@ class CreateJiraFromEvent(object):
 
         return '\n'.join(additional_fields_lst)
 
+    @tracer.start_as_current_span("_prepare_jira")
     def _prepare_jira(self):
         issue_dict = {
             'project': {'key': self.project},
@@ -276,6 +294,7 @@ class CreateJiraFromEvent(object):
         )
         return issue_dict
 
+    @tracer.start_as_current_span("create_jira")
     def create_jira(self,):
         self.init_jira_connection()
         jira_body = self._prepare_jira()
@@ -296,6 +315,7 @@ class VerifyJIRA(object):
         self.jira = None
         self.bot_config = bot_config(bot_name='jira')
 
+    @tracer.start_as_current_span("init_jira_connection")
     def init_jira_connection(self):
         self.jira = JIRA(
             options={'server': self.bot_config['JIRA_SERVER'], 'verify': False},
@@ -303,6 +323,7 @@ class VerifyJIRA(object):
             timeout=settings.JIRA_TIMEOUT
         )
 
+    @tracer.start_as_current_span("define_harp_event_url")
     def define_harp_event_url(self):
         if settings.DOCKER_SERVER_IP:
             notification_url = f"http://{settings.DOCKER_SERVER_IP}/#/notifications-panel?notification_id={self.alert_id}"
@@ -311,11 +332,13 @@ class VerifyJIRA(object):
 
         return notification_url
 
+    @tracer.start_as_current_span("jira_template")
     def jira_template(self):
         msg = f"This is the test JIRA from Harp Event console."
 
         return msg
 
+    @tracer.start_as_current_span("verify_jira")
     def verify_jira(self):
         if self.action_type == 'assign':
             try:

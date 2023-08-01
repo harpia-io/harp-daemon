@@ -3,8 +3,10 @@ import harp_daemon.settings as settings
 import requests
 import json
 import traceback
+from harp_daemon.plugins.tracer import get_tracer
 
 log = service_logger()
+tracer = get_tracer().get_tracer(__name__)
 
 
 class GenerateAutoSignl4(object):
@@ -18,11 +20,13 @@ class GenerateAutoSignl4(object):
 		self.additional_fields = additional_fields
 		self.additional_urls = additional_urls
 
+	@tracer.start_as_current_span("define_subject_name")
 	def define_subject_name(self):
 		subject_name = self.alert_name
 
 		return subject_name
 
+	@tracer.start_as_current_span("define_harp_event_url")
 	def define_harp_event_url(self):
 		if settings.DOCKER_SERVER_IP:
 			notification_url = f"http://{settings.DOCKER_SERVER_IP}/#/notifications-panel?notification_id={self.alert_id}"
@@ -31,6 +35,7 @@ class GenerateAutoSignl4(object):
 
 		return notification_url
 
+	@tracer.start_as_current_span("_prepare_additional_fields")
 	def _prepare_additional_fields(self):
 		additional_fields_lst = {}
 
@@ -40,6 +45,7 @@ class GenerateAutoSignl4(object):
 
 		return additional_fields_lst
 
+	@tracer.start_as_current_span("prepare_additional_urls")
 	def prepare_additional_urls(self):
 		additional_urls_lst = {}
 
@@ -49,6 +55,7 @@ class GenerateAutoSignl4(object):
 
 		return additional_urls_lst
 
+	@tracer.start_as_current_span("create_message")
 	def create_message(self, action):
 		if action == 'create' or action == 'update':
 			status = 'new'
@@ -71,6 +78,7 @@ class GenerateAutoSignl4(object):
 
 		return message
 
+	@tracer.start_as_current_span("signl4_processor")
 	def signl4_processor(self, action):
 		action_status = None
 		for webhook in self.signl4_webhook:
@@ -95,24 +103,28 @@ class GenerateAutoSignl4(object):
 
 		return action_status
 
+	@tracer.start_as_current_span("create_alert")
 	def create_alert(self):
 		if settings.SIGNL4_ACTIVE == "false":
 			return 'fake_recipient_id'
 
 		return self.signl4_processor(action='create')
 
+	@tracer.start_as_current_span("update_alert")
 	def update_alert(self):
 		if settings.SIGNL4_ACTIVE == "false":
 			return 'fake_recipient_id'
 
 		self.signl4_processor(action='update')
 
+	@tracer.start_as_current_span("still_exist_alert")
 	def still_exist_alert(self):
 		if settings.SIGNL4_ACTIVE == "false":
 			return 'fake_recipient_id'
 
 		self.signl4_processor(action='still_exist')
 
+	@tracer.start_as_current_span("close_alert")
 	def close_alert(self):
 		if settings.SIGNL4_ACTIVE == "false":
 			return 'fake_recipient_id'

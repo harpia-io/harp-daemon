@@ -6,8 +6,10 @@ from harp_daemon.notification_processors.signl4_processor import GenerateAutoSig
 from harp_daemon.handlers.env_processor import env_id_to_name
 from harp_daemon.tools.prometheus_metrics import Prom
 from harp_daemon.models.notification_history import NotificationHistory
+from harp_daemon.plugins.tracer import get_tracer
 
 log = service_logger()
+tracer = get_tracer().get_tracer(__name__)
 
 
 class Signl4Handler(object):
@@ -16,11 +18,13 @@ class Signl4Handler(object):
         self.action = action
         self.notification_type = 'signl4'
 
+    @tracer.start_as_current_span("define_notification_type")
     def define_notification_type(self):
         notification_type = settings.NOTIFICATION_TYPE_MAPPING[self.notification_type]
 
         return notification_type
 
+    @tracer.start_as_current_span("active_alerts_template")
     def active_alerts_template(self):
         data = {
             'alert_id': self.notification['exist_alert_body']['id'],
@@ -47,6 +51,7 @@ class Signl4Handler(object):
 
         return data
 
+    @tracer.start_as_current_span("update_alerts_template")
     def update_alerts_template(self):
         data = {
             'severity': self.notification['severity'],
@@ -62,11 +67,13 @@ class Signl4Handler(object):
 
         return data
 
+    @tracer.start_as_current_span("define_rendered_image")
     def define_rendered_image(self):
         image = json.loads(self.notification['exist_alert_body']['image'])
         if image:
             return image
 
+    @tracer.start_as_current_span("process_signl4")
     def process_signl4(self, action):
         log.info(
             msg=f"Start preparing signl4 - {self.notification['procedure']}",
@@ -94,6 +101,7 @@ class Signl4Handler(object):
             process_event.close_alert()
 
     @Prom.SIGNL4_CREATE_NOTIFICATION.time()
+    @tracer.start_as_current_span("create_event")
     def create_event(self):
         self.process_signl4(action='create_event')
         ActiveAlerts.add_new_event(data=self.active_alerts_template())
@@ -104,6 +112,7 @@ class Signl4Handler(object):
         )
 
     @Prom.SIGNL4_UPDATE_NOTIFICATION.time()
+    @tracer.start_as_current_span("update_event")
     def update_event(self):
         self.process_signl4(action='update_event')
         ActiveAlerts.update_exist_event(data=self.update_alerts_template(), event_id=self.notification['exist_alert_body']['id'])
@@ -114,6 +123,7 @@ class Signl4Handler(object):
         )
 
     @Prom.SIGNL4_RESUBMIT_NOTIFICATION.time()
+    @tracer.start_as_current_span("resubmit_event")
     def resubmit_event(self):
         self.process_signl4(action='still_exist')
         ActiveAlerts.update_exist_event(data=self.update_alerts_template(), event_id=self.notification['exist_alert_body']['id'])
@@ -124,6 +134,7 @@ class Signl4Handler(object):
         )
 
     @Prom.SIGNL4_CLOSE_NOTIFICATION.time()
+    @tracer.start_as_current_span("close_event")
     def close_event(self):
         self.process_signl4(action='close_event')
         ActiveAlerts.delete_exist_event(event_id=self.notification['exist_alert_body']['id'])
@@ -133,6 +144,7 @@ class Signl4Handler(object):
             notification_action="Closed SIGNL4 event"
         )
 
+    @tracer.start_as_current_span("track_statistics")
     def track_statistics(self):
         if settings.DEEP_REPORTING == "true":
             if self.notification['additional_fields']:
@@ -167,6 +179,7 @@ class Signl4Handler(object):
             notification_status=settings.NOTIFICATION_STATUS_MAPPING[self.notification['notification_status']],
         ).inc(1)
 
+    @tracer.start_as_current_span("process_alert")
     def process_alert(self):
         self.track_statistics()
 

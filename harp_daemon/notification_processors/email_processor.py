@@ -9,8 +9,10 @@ import ujson as json
 import base64
 from harp_daemon.handlers.get_bot_config import bot_config
 from harp_daemon.templates.email_template import template
+from harp_daemon.plugins.tracer import get_tracer
 
 log = service_logger()
+tracer = get_tracer().get_tracer(__name__)
 
 
 class GenerateAutoEmail(object):
@@ -52,6 +54,7 @@ class GenerateAutoEmail(object):
         self.email_status = None
         self.bot_config = bot_config(bot_name='email')
 
+    @tracer.start_as_current_span("define_harp_event_url")
     def define_harp_event_url(self):
         if settings.DOCKER_SERVER_IP:
             notification_url = f"http://{settings.DOCKER_SERVER_IP}/#/notifications-panel?notification_id={self.alert_id}"
@@ -60,11 +63,13 @@ class GenerateAutoEmail(object):
 
         return notification_url
 
+    @tracer.start_as_current_span("define_send_to_list")
     def define_send_to_list(self):
         send_to_list = self.recipients
 
         return send_to_list
 
+    @tracer.start_as_current_span("decorate_additional_fields")
     def decorate_additional_fields(self):
         if self.additional_fields:
             if self.monitoring_system == 'zabbix':
@@ -78,12 +83,14 @@ class GenerateAutoEmail(object):
                     del self.additional_fields['script']
 
     @staticmethod
+    @tracer.start_as_current_span("escape")
     def escape(s):
         s = s.replace("<", " < ")
         s = s.replace(">", " > ")
 
         return s
 
+    @tracer.start_as_current_span("format_notification_output")
     def format_notification_output(self):
         output_dict = json.loads(self.notification_output)
         if 'current' in output_dict:
@@ -96,6 +103,7 @@ class GenerateAutoEmail(object):
 
         return json.dumps(output_dict)
 
+    @tracer.start_as_current_span("decorate_alert_details")
     def decorate_alert_details(self):
         HTML = ''
 
@@ -122,6 +130,7 @@ class GenerateAutoEmail(object):
 
         return HTML
 
+    @tracer.start_as_current_span("email_template")
     def email_template(self):
         exclude_list = ["Action URL", "Note URL", "graph_url"]
 
@@ -171,11 +180,13 @@ class GenerateAutoEmail(object):
 
         return html_body
 
+    @tracer.start_as_current_span("define_subject_name")
     def define_subject_name(self):
         subject_name = f"Harp alert: {self.alert_name} - {self.object_name}"
 
         return subject_name
 
+    @tracer.start_as_current_span("prepare_email")
     def prepare_email(self):
         msgroot = MIMEMultipart('related')
         msgroot['From'] = self.bot_config['EMAIL_USER']
@@ -222,6 +233,7 @@ class GenerateAutoEmail(object):
 
         return msgroot
 
+    @tracer.start_as_current_span("smtp_connection")
     def smtp_connection(self):
         try:
             self.smtp = smtplib.SMTP_SSL(settings.SMTP_HOST, settings.SMTP_PORT)
@@ -236,6 +248,7 @@ class GenerateAutoEmail(object):
                 extra={"tags": {"event_id": self.event_id}}
             )
 
+    @tracer.start_as_current_span("create_email")
     def create_email(self, recipient_id=None, email_status=None):
         """
         If recipient_id - update exist thread
@@ -268,6 +281,7 @@ class GenerateAutoEmail(object):
 
         return self.recipient_id
 
+    @tracer.start_as_current_span("close_email")
     def close_email(self, recipient_id):
         if settings.SMTP_ACTIVE == "false":
             return 'fake_recipient_id'
@@ -303,6 +317,7 @@ class VerifyEmail(object):
         self.smtp = None
         self.bot_config = bot_config(bot_name='email')
 
+    @tracer.start_as_current_span("smtp_connection")
     def smtp_connection(self):
         try:
             self.smtp = smtplib.SMTP_SSL(settings.SMTP_HOST, settings.SMTP_PORT)
@@ -311,6 +326,7 @@ class VerifyEmail(object):
         except Exception as err:
             log.error(msg=f"Can`t connect to SMTP:{err}")
 
+    @tracer.start_as_current_span("define_harp_event_url")
     def define_harp_event_url(self):
         if settings.DOCKER_SERVER_IP:
             notification_url = f"http://{settings.DOCKER_SERVER_IP}/#/notifications-panel?notification_id={self.alert_id}"
@@ -320,22 +336,26 @@ class VerifyEmail(object):
         return notification_url
 
     @staticmethod
+    @tracer.start_as_current_span("define_subject_name")
     def define_subject_name():
         msg = "Specific alert has been assigned to you"
 
         return msg
 
     @staticmethod
+    @tracer.start_as_current_span("test_template")
     def test_template():
         msg = f"This is the test notification from Harp Event console"
 
         return msg
 
     @staticmethod
+    @tracer.start_as_current_span("verify_template")
     def verify_template():
         msg = f"Your Email address was added to Harp Event console.\n" \
               f"You can start receiving notifications in case of the alert"
 
+    @tracer.start_as_current_span("prepare_email")
     def prepare_email(self, msg):
         msgroot = MIMEMultipart('related')
         msgroot['From'] = self.bot_config['EMAIL_USER']
@@ -356,11 +376,13 @@ class VerifyEmail(object):
 
         return msgroot
 
+    @tracer.start_as_current_span("define_send_to_list")
     def define_send_to_list(self):
         send_to_list = self.recipients
 
         return send_to_list
 
+    @tracer.start_as_current_span("verify_email")
     def verify_email(self):
         self.smtp_connection()
         try:

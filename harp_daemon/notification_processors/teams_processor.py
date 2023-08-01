@@ -4,8 +4,10 @@ import ujson as json
 import harp_daemon.settings as settings
 import traceback
 import os
+from harp_daemon.plugins.tracer import get_tracer
 
 log = service_logger()
+tracer = get_tracer().get_tracer(__name__)
 
 
 class GenerateAutoTeams(object):
@@ -26,11 +28,13 @@ class GenerateAutoTeams(object):
 		self.studio = studio
 		self.bot = None
 
+	@tracer.start_as_current_span("define_subject_name")
 	def define_subject_name(self):
 		subject_name = f"{self.alert_name}"
 
 		return subject_name
 
+	@tracer.start_as_current_span("define_harp_event_url")
 	def define_harp_event_url(self):
 		if settings.DOCKER_SERVER_IP:
 			notification_url = f"http://{settings.DOCKER_SERVER_IP}/#/notifications-panel?notification_id={self.alert_id}"
@@ -39,6 +43,7 @@ class GenerateAutoTeams(object):
 
 		return notification_url
 
+	@tracer.start_as_current_span("prepare_additional_fields")
 	def prepare_additional_fields(self):
 		additional_fields_dict = {}
 		exclude_list = ["Action URL", "Note URL", "graph_url"]
@@ -67,6 +72,7 @@ class GenerateAutoTeams(object):
 
 		return additional_fields_dict
 
+	@tracer.start_as_current_span("prepare_alert_subject")
 	def prepare_alert_subject(self, action):
 		if action == 'create' or action == 'update':
 			msg = f"Alert has been triggered - {self.define_subject_name()}"
@@ -77,6 +83,7 @@ class GenerateAutoTeams(object):
 
 		return msg
 
+	@tracer.start_as_current_span("teams_processor")
 	def teams_processor(self, action):
 		for teams_chat in self.teams_id:
 			event_body = {
@@ -111,24 +118,28 @@ class GenerateAutoTeams(object):
 			except Exception as err:
 				log.error(msg=f"Error: {err}, Stack: {traceback.format_exc()}")
 
+	@tracer.start_as_current_span("create_chat")
 	def create_chat(self):
 		if settings.TEAMS_ACTIVE == "false":
 			return 'fake_recipient_id'
 
 		self.teams_processor(action='create')
 
+	@tracer.start_as_current_span("update_chat")
 	def update_chat(self):
 		if settings.TEAMS_ACTIVE == "false":
 			return 'fake_recipient_id'
 
 		self.teams_processor(action='update')
 
+	@tracer.start_as_current_span("still_exist_chat")
 	def still_exist_chat(self):
 		if settings.TEAMS_ACTIVE == "false":
 			return 'fake_recipient_id'
 
 		self.teams_processor(action='still_exist')
 
+	@tracer.start_as_current_span("close_chat_comment")
 	def close_chat_comment(self):
 		if settings.TEAMS_ACTIVE == "false":
 			return 'fake_recipient_id'
@@ -144,11 +155,13 @@ class VerifyTeams(object):
 		self.alert_id = alert_id
 
 	@staticmethod
+	@tracer.start_as_current_span("notify_message")
 	def notify_message():
 		msg = f"This is the test message from Harp Event console"
 
 		return msg
 
+	@tracer.start_as_current_span("verify_teams")
 	def verify_teams(self):
 		if self.action_type == 'assign':
 			for teams_chat in self.teams_id:

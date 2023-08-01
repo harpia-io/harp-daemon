@@ -2,9 +2,11 @@ from logger.logging import service_logger
 import datetime
 from harp_daemon.plugins.db import Session, Base
 import sqlalchemy
+from harp_daemon.plugins.tracer import get_tracer
 
 log = service_logger()
 session = Session()
+tracer = get_tracer().get_tracer(__name__)
 
 
 class Statistics(Base):
@@ -36,6 +38,7 @@ class Statistics(Base):
         }
 
     @classmethod
+    @tracer.start_as_current_span("add_new_event")
     def add_new_event(cls, data: dict):
         try:
             notification = Statistics(**data)
@@ -46,6 +49,7 @@ class Statistics(Base):
             log.warning(msg=f"Can`t update statistics table because of the error: {err}\nBody: {data}")
 
     @classmethod
+    @tracer.start_as_current_span("update_counter")
     def update_counter(cls, alert_id: int, data: dict):
         try:
             session.query(cls).filter(
@@ -58,6 +62,7 @@ class Statistics(Base):
             log.warn(msg=f"Cannot update exist event in Statistics - {err}\nData: {data}")
 
     @classmethod
+    @tracer.start_as_current_span("get_counter")
     def get_counter(cls, alert_id: int):
         query = session.query(cls).filter(
             cls.alert_id == alert_id

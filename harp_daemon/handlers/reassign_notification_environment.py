@@ -5,8 +5,10 @@ import ujson as json
 import traceback
 import harp_daemon.settings as settings
 from harp_daemon.plugins.kafka_consumer import KafkaConsumeMessages
+from harp_daemon.plugins.tracer import get_tracer
 
 log = service_logger()
+tracer = get_tracer().get_tracer(__name__)
 
 
 class ReassignNotification(object):
@@ -41,18 +43,21 @@ class ReassignNotification(object):
 				log.error(msg=f"Exception in Thread: {err}\nStack: {traceback.format_exc()}\n{parsed_json}")
 				exit()
 
+	@tracer.start_as_current_span("get_active_notifications")
 	def get_active_notifications(self):
 		get_active_events = ActiveAlerts.get_active_event_by_environment(environment_id=self.old_environment_id)
 		all_active_events = [single_event.json()['alert_id'] for single_event in get_active_events]
 
 		return all_active_events
 
+	@tracer.start_as_current_span("get_all_notifications")
 	def get_all_notifications(self):
 		get_active_events = Notifications.get_active_event_by_environment(environment_id=self.old_environment_id)
 		all_active_events = [single_event.json()['id'] for single_event in get_active_events]
 
 		return all_active_events
 
+	@tracer.start_as_current_span("update_env_to_default")
 	def update_env_to_default(self):
 		try:
 			all_notifications = self.get_active_notifications() + self.get_all_notifications()

@@ -2,9 +2,11 @@ from logger.logging import service_logger
 from datetime import datetime
 from harp_daemon.plugins.db import Session, Base
 import sqlalchemy
+from harp_daemon.plugins.tracer import get_tracer
 
 log = service_logger()
 session = Session()
+tracer = get_tracer().get_tracer(__name__)
 
 
 class NotificationScheduler(Base):
@@ -26,6 +28,7 @@ class NotificationScheduler(Base):
         }
 
     @classmethod
+    @tracer.start_as_current_span("get_events_to_process")
     def get_events_to_process(cls):
         queries = session.query(cls).filter(
             cls.execute < datetime.utcnow()
@@ -36,6 +39,7 @@ class NotificationScheduler(Base):
         return events_to_process
 
     @classmethod
+    @tracer.start_as_current_span("add_new_event")
     def add_new_event(cls, data: dict):
         notification = NotificationScheduler(**data)
         try:
@@ -46,6 +50,7 @@ class NotificationScheduler(Base):
             log.error(msg=f"Cannot add new event to NotificationScheduler - {err}\nData: {data}")
 
     @classmethod
+    @tracer.start_as_current_span("update_exist_event")
     def update_exist_event(cls, alert_id: int, data: dict):
         try:
             session.query(cls).filter(
@@ -58,6 +63,7 @@ class NotificationScheduler(Base):
             log.error(msg=f"Cannot update exist event in NotificationScheduler - {err}\nData: {data}")
 
     @classmethod
+    @tracer.start_as_current_span("delete_exist_event")
     def delete_exist_event(cls, alert_id: int):
         try:
             session.query(cls).filter(

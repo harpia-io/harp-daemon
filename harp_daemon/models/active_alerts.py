@@ -3,9 +3,11 @@ import datetime
 import ujson as json
 from harp_daemon.plugins.db import Session, Base
 import sqlalchemy
+from harp_daemon.plugins.tracer import get_tracer
 
 log = service_logger()
 session = Session()
+tracer = get_tracer().get_tracer(__name__)
 
 
 class ActiveAlerts(Base):
@@ -69,6 +71,7 @@ class ActiveAlerts(Base):
         }
 
     @classmethod
+    @tracer.start_as_current_span("add_new_event")
     def add_new_event(cls, data: dict):
         notification = ActiveAlerts(**data)
         try:
@@ -79,6 +82,7 @@ class ActiveAlerts(Base):
             log.warning(msg=f"Cannot add new event to Active Alerts - {err}\nData: {data}")
 
     @classmethod
+    @tracer.start_as_current_span("get_active_event_by_id")
     def get_active_event_by_id(cls, event_id):
         session.commit()
         queries = session.query(cls).filter(
@@ -88,6 +92,7 @@ class ActiveAlerts(Base):
         return queries
 
     @classmethod
+    @tracer.start_as_current_span("get_active_event_by_environment")
     def get_active_event_by_environment(cls, environment_id):
         session.commit()
         queries = session.query(cls).filter(
@@ -97,6 +102,7 @@ class ActiveAlerts(Base):
         return queries
 
     @classmethod
+    @tracer.start_as_current_span("get_all_active_events")
     def get_all_active_events(cls):
         session.commit()
         queries = session.query(cls).filter(
@@ -111,6 +117,7 @@ class ActiveAlerts(Base):
         return queries
 
     @classmethod
+    @tracer.start_as_current_span("update_exist_event")
     def update_exist_event(cls, event_id: int, data: dict):
         try:
             session.query(cls).filter(
@@ -123,6 +130,7 @@ class ActiveAlerts(Base):
             log.error(msg=f"Cannot update exist event in Active Alerts - {err}\nData: {data}")
 
     @classmethod
+    @tracer.start_as_current_span("delete_exist_event")
     def delete_exist_event(cls, event_id: int):
         try:
             session.commit()

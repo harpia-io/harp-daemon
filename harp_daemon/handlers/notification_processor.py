@@ -14,10 +14,13 @@ from harp_daemon.handlers.period_processors import check_notification_period
 from harp_daemon.notification_plugins.help_processors import check_licenses
 from harp_daemon.plugins.kafka_confluent_producer import KafkaProduceMessages
 from harp_daemon.handlers.scheduler_processors import Scheduler
+from harp_daemon.plugins.tracer import get_tracer
 
 producer = KafkaProduceMessages()
 
 log = service_logger()
+tracer_get = get_tracer()
+tracer = tracer_get.get_tracer(__name__)
 
 
 class NotificationDaemon(object):

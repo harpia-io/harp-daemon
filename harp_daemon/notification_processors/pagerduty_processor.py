@@ -5,8 +5,10 @@ import requests
 import ujson as json
 import uuid
 import os
+from harp_daemon.plugins.tracer import get_tracer
 
 log = service_logger()
+tracer = get_tracer().get_tracer(__name__)
 bio = BytesIO()
 
 
@@ -30,11 +32,13 @@ class GenerateAutoPagerduty(object):
 	# 	if self.graph_url:
 	# 		return self.graph_url
 
+	@tracer.start_as_current_span("define_subject_name")
 	def define_subject_name(self):
 		subject_name = f"{self.object_name}: {self.alert_name}"
 
 		return subject_name
 
+	@tracer.start_as_current_span("define_harp_event_url")
 	def define_harp_event_url(self):
 		if settings.DOCKER_SERVER_IP:
 			notification_url = f"http://{settings.DOCKER_SERVER_IP}/#/notifications-panel?notification_id={self.alert_id}"
@@ -43,6 +47,7 @@ class GenerateAutoPagerduty(object):
 
 		return notification_url
 
+	@tracer.start_as_current_span("_prepare_additional_fields")
 	def _prepare_additional_fields(self):
 		additional_fields_lst = {}
 		exclude_list = ["Action URL", "Note URL", "graph_url"]
@@ -71,6 +76,7 @@ class GenerateAutoPagerduty(object):
 
 		return additional_fields_lst
 
+	@tracer.start_as_current_span("pagerduty_processor")
 	def pagerduty_processor(self, action):
 		try:
 			for routing_key in self.pagerduty_routing_key:
@@ -102,6 +108,7 @@ class GenerateAutoPagerduty(object):
 		except Exception as err:
 			log.error(msg=f"Can`t send Pagerduty message: {err}")
 
+	@tracer.start_as_current_span("create_event")
 	def create_event(self, recipient_id):
 		if settings.PAGERDUTY_ACTIVE == "false":
 			return 'fake_recipient_id'
@@ -115,6 +122,7 @@ class GenerateAutoPagerduty(object):
 
 		return str(self.recipient_id)
 
+	@tracer.start_as_current_span("update_event")
 	def update_event(self, recipient_id):
 		if settings.PAGERDUTY_ACTIVE == "false":
 			return 'fake_recipient_id'
@@ -124,6 +132,7 @@ class GenerateAutoPagerduty(object):
 
 		return str(self.recipient_id)
 
+	@tracer.start_as_current_span("close_event")
 	def close_event(self, recipient_id):
 		if settings.PAGERDUTY_ACTIVE == "false":
 			return 'fake_recipient_id'

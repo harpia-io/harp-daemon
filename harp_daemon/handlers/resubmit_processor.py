@@ -4,8 +4,10 @@ from harp_daemon.models.notifications import Notifications
 from harp_daemon.models.procedures import Procedures
 import traceback
 import ujson as json
+from harp_daemon.plugins.tracer import get_tracer
 
 log = service_logger()
+tracer = get_tracer().get_tracer(__name__)
 
 
 class Resubmit(object):
@@ -14,6 +16,7 @@ class Resubmit(object):
 		self.event_id = event_id
 		self.notification = None
 
+	@tracer.start_as_current_span("get_notification")
 	def get_notification(self):
 		get_notification = Notifications.get_notification_by_id(event_id=self.alert_id)
 		exist_notification = [single_notification.json() for single_notification in get_notification][0]
@@ -21,12 +24,14 @@ class Resubmit(object):
 		return exist_notification
 
 	@staticmethod
+	@tracer.start_as_current_span("get_procedure")
 	def get_procedure(procedure_id):
 		get_procedure = Procedures.get_procedure_by_id(procedure_id=procedure_id)
 		exist_procedure = [single_notification.json() for single_notification in get_procedure][0]
 
 		return exist_procedure
 
+	@tracer.start_as_current_span("generate_notification_body")
 	def generate_notification_body(self):
 		notification = self.get_notification()
 		notification['procedure'] = self.get_procedure(procedure_id=notification['procedure_id'])
@@ -34,6 +39,7 @@ class Resubmit(object):
 
 		return notification
 
+	@tracer.start_as_current_span("define_graph_url")
 	def define_graph_url(self):
 		image = self.notification['image']
 
@@ -43,6 +49,7 @@ class Resubmit(object):
 				if 'img_url' in image_load:
 					return image_load['img_url']
 
+	@tracer.start_as_current_span("define_ms_unique_data")
 	def define_ms_unique_data(self):
 		if self.notification['ms'] == 'zabbix':
 			zabbix_data = {'zabbix': {'item.id1': self.notification['ms_alert_id']}}
@@ -50,6 +57,7 @@ class Resubmit(object):
 		else:
 			return {}
 
+	@tracer.start_as_current_span("decorate_notification")
 	def decorate_notification(self):
 		self.notification['alert_name'] = self.notification['name']
 		self.notification['notification_output'] = json.loads(self.notification['output'])['current']
@@ -60,6 +68,7 @@ class Resubmit(object):
 		self.notification['additional_urls'] = json.loads(self.notification['additional_urls'])
 		self.notification['actions'] = json.loads(self.notification['actions'])
 
+	@tracer.start_as_current_span("process_resubmit")
 	def process_resubmit(self):
 		# log.debug(
 		# 	msg=f"Start resubmit",

@@ -6,9 +6,13 @@ from io import BytesIO
 import requests
 import json
 import traceback
+from harp_daemon.plugins.tracer import get_tracer
+from opentelemetry.instrumentation.requests import RequestsInstrumentor
 
 log = service_logger()
+tracer = get_tracer().get_tracer(__name__)
 bio = BytesIO()
+RequestsInstrumentor().instrument()
 
 
 class GenerateAutoWebhook(object):
@@ -28,11 +32,13 @@ class GenerateAutoWebhook(object):
 		self.studio = studio
 		self.bot = None
 
+	@tracer.start_as_current_span("define_subject_name")
 	def define_subject_name(self):
 		subject_name = f"{self.alert_name}"
 
 		return subject_name
 
+	@tracer.start_as_current_span("define_harp_event_url")
 	def define_harp_event_url(self):
 		if settings.DOCKER_SERVER_IP:
 			notification_url = f"http://{settings.DOCKER_SERVER_IP}/#/notifications-panel?notification_id={self.alert_id}"
@@ -41,6 +47,7 @@ class GenerateAutoWebhook(object):
 
 		return notification_url
 
+	@tracer.start_as_current_span("prepare_additional_fields")
 	def prepare_additional_fields(self):
 		additional_fields_dict = {}
 		exclude_list = ["Action URL", "Note URL", "graph_url"]
@@ -69,11 +76,13 @@ class GenerateAutoWebhook(object):
 
 		return additional_fields_dict
 
+	@tracer.start_as_current_span("prepare_link_to_alert")
 	def prepare_link_to_alert(self):
 		url = self.define_harp_event_url()
 
 		return url
 
+	@tracer.start_as_current_span("prepare_alert_subject")
 	def prepare_alert_subject(self, action):
 		if action == 'create' or action == 'update':
 			msg = f"Alert has been triggered - {self.define_subject_name()}"
@@ -85,6 +94,7 @@ class GenerateAutoWebhook(object):
 		return msg
 
 	@staticmethod
+	@tracer.start_as_current_span("webhook_get_request")
 	def webhook_get_request(webhook_url):
 		try:
 			req = requests.get(
@@ -100,6 +110,7 @@ class GenerateAutoWebhook(object):
 			log.error(msg=f"Error: {err}, Stack: {traceback.format_exc()}")
 
 	@staticmethod
+	@tracer.start_as_current_span("format_post_headers")
 	def format_post_headers(post_headers):
 		headers = {"Content-Type": "application/json"}
 
@@ -115,6 +126,7 @@ class GenerateAutoWebhook(object):
 		return headers
 
 	@staticmethod
+	@tracer.start_as_current_span("format_post_body")
 	def format_post_body(post_body):
 		body = {}
 
@@ -130,6 +142,7 @@ class GenerateAutoWebhook(object):
 		return body
 
 	@staticmethod
+	@tracer.start_as_current_span("webhook_post_request")
 	def webhook_post_request(webhook_url, body, headers, auth):
 		try:
 			if auth:
@@ -157,6 +170,7 @@ class GenerateAutoWebhook(object):
 		except Exception as err:
 			log.error(msg=f"Error: {err}, Stack: {traceback.format_exc()}\nInput: webhook_url: {webhook_url}, body: {body}, headers: {headers}, auth: {auth}")
 
+	@tracer.start_as_current_span("webhook_processor")
 	def webhook_processor(self, action):
 		webhook_responses = []
 		for single_webhook in self.webhooks:
@@ -176,6 +190,7 @@ class GenerateAutoWebhook(object):
 
 		return webhook_responses
 
+	@tracer.start_as_current_span("create_chat")
 	def create_chat(self):
 		log.debug(
 			msg=f"Create Webhook Chat",
@@ -187,13 +202,16 @@ class GenerateAutoWebhook(object):
 		return result
 
 	@staticmethod
+	@tracer.start_as_current_span("update_chat")
 	def update_chat():
 		return 'fake_recipient_id'
 
 	@staticmethod
+	@tracer.start_as_current_span("still_exist_chat")
 	def still_exist_chat():
 		return 'fake_recipient_id'
 
 	@staticmethod
+	@tracer.start_as_current_span("close_chat_comment")
 	def close_chat_comment():
 		return 'fake_recipient_id'
