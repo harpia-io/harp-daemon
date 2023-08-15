@@ -1,9 +1,9 @@
-fastapi==0.101.0
+fastapi==0.101.1
 flask-sqlalchemy==3.0.5
 prometheus_client==0.17.1
 confluent-kafka==2.2.0
 ujson==5.8.0
-APScheduler==3.10.2
+APScheduler==3.10.3
 jira==3.5.2
 skpy==0.10.6
 requests-cache==1.1.0
