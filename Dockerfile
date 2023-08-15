@@ -4,7 +4,7 @@ WORKDIR /code
 
 RUN apt-get -y install wget
 RUN wget https://downloads.mariadb.com/MariaDB/mariadb_repo_setup
-RUN echo "3a562a8861fc6362229314772c33c289d9096bafb0865ba4ea108847b78768d2  mariadb_repo_setup" | sha256sum -c -
+RUN echo "f5ba8677ad888cf1562df647d3ee843c8c1529ed63a896bede79d01b2ecc3c1d  mariadb_repo_setup" | sha256sum -c -
 RUN chmod +x mariadb_repo_setup
 RUN ./mariadb_repo_setup --mariadb-server-version="mariadb-10.9"
 
