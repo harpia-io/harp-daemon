@@ -4,11 +4,13 @@ import os
 SERVER_NAME = os.getenv('SERVER_NAME', '0.0.0.0')
 SERVER_PORT = os.getenv('SERVER_PORT', 8081)
 SERVICE_NAME = os.getenv('SERVICE_NAME', 'harpia-daemon')
+RUNNING_ON = os.getenv('RUNNING_ON', 'kubernetes')
 
 FLASK_THREADED = os.getenv('FLASK_THREADED', True)
 FLASK_DEBUG = os.getenv('FLASK_DEBUG', False)
 URL_PREFIX = os.getenv('URL_PREFIX', '/api/v1')
 SERVICE_NAMESPACE = os.getenv('SERVICE_NAMESPACE', 'dev')
+
 
 # Flask-Restplus settings
 RESTPLUS_SWAGGER_UI_DOC_EXPANSION = os.getenv('RESTPLUS_SWAGGER_UI_DOC_EXPANSION', 'list')
@@ -17,8 +19,8 @@ RESTPLUS_MASK_SWAGGER = os.getenv('RESTPLUS_MASK_SWAGGER', False)
 RESTPLUS_ERROR_404_HELP = os.getenv('RESTPLUS_ERROR_404_HELP', False)
 
 LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')
-LOKI_SERVER = os.getenv('LOKI_SERVER', '')
-LOKI_PORT = os.getenv('LOKI_PORT', 443)
+OPENSEARCH_SERVER = os.getenv('OPENSEARCH_SERVER', 'opensearch-ingest-hl.opensearch.svc.cluster.local')
+OPENSEARCH_PORT = os.getenv('OPENSEARCH_PORT', 9200)
 LOKI_SCHEMA = os.getenv('LOKI_SCHEMA', 'https')
 
 # SQLALCHEMY

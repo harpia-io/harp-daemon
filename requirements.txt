@@ -21,3 +21,4 @@ uvicorn==0.23.2
 gunicorn==21.2.0
 SQLAlchemy==2.0.20
 mariadb==1.1.7
+opensearch-logger==1.2.3
