@@ -129,19 +129,20 @@ class UIHandler(object):
     @tracer.start_as_current_span("track_statistics")
     def track_statistics(self):
         if settings.DEEP_REPORTING == "true":
-            if self.notification['additional_fields']:
-                for label_name, label_value in self.notification['additional_fields'].items():
-                    Prom.notification_statistics_by_labels.labels(
-                        notification_action=self.action,
-                        alert_name=self.notification['exist_alert_body']['name'],
-                        ms=self.notification['exist_alert_body']['ms'],
-                        source=self.notification['exist_alert_body']['source'],
-                        object_name=self.notification['exist_alert_body']['object_name'],
-                        notification_type=self.notification_type,
-                        severity=settings.SEVERITY_MAPPING[self.notification['severity']],
-                        label_name=label_name,
-                        label_value=label_value
-                    ).inc(1)
+            if 'additional_fields' in self.notification:
+                if self.notification['additional_fields']:
+                    for label_name, label_value in self.notification['additional_fields'].items():
+                        Prom.notification_statistics_by_labels.labels(
+                            notification_action=self.action,
+                            alert_name=self.notification['exist_alert_body']['name'],
+                            ms=self.notification['exist_alert_body']['ms'],
+                            source=self.notification['exist_alert_body']['source'],
+                            object_name=self.notification['exist_alert_body']['object_name'],
+                            notification_type=self.notification_type,
+                            severity=settings.SEVERITY_MAPPING[self.notification['severity']],
+                            label_name=label_name,
+                            label_value=label_value
+                        ).inc(1)
 
         Prom.notification_statistics_alert_duration.labels(
             notification_action=self.action,
