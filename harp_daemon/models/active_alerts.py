@@ -75,71 +75,53 @@ class ActiveAlerts(Base):
     def add_new_event(cls, data: dict):
         notification = ActiveAlerts(**data)
         try:
-            session.add(notification)
-            session.commit()
+            with session.begin():
+                session.add(notification)
         except Exception as err:
-            session.rollback()
             log.warning(msg=f"Cannot add new event to Active Alerts - {err}\nData: {data}")
+            raise
 
     @classmethod
     @tracer.start_as_current_span("get_active_event_by_id")
     def get_active_event_by_id(cls, event_id):
-        session.commit()
-        queries = session.query(cls).filter(
-            cls.alert_id == event_id
-        ).all()
-
-        return queries
+        with session.begin():
+            return session.query(cls).filter(cls.alert_id == event_id).all()
 
     @classmethod
     @tracer.start_as_current_span("get_active_event_by_environment")
     def get_active_event_by_environment(cls, environment_id):
-        session.commit()
-        queries = session.query(cls).filter(
-            cls.studio == environment_id
-        ).all()
-
-        return queries
+        with session.begin():
+            return session.query(cls).filter(cls.studio == environment_id).all()
 
     @classmethod
     @tracer.start_as_current_span("get_all_active_events")
     def get_all_active_events(cls):
-        session.commit()
-        queries = session.query(cls).filter(
-            cls.handle_expire_ts < datetime.datetime.utcnow(),
-            cls.snooze_expire_ts < datetime.datetime.utcnow(),
-            cls.downtime_expire_ts < datetime.datetime.utcnow(),
-            cls.notification_type != 1,
-            cls.acknowledged == 0,
-            cls.assign_status == 0
-        ).all()
-
-        return queries
+        with session.begin():
+            return session.query(cls).filter(
+                cls.handle_expire_ts < datetime.datetime.utcnow(),
+                cls.snooze_expire_ts < datetime.datetime.utcnow(),
+                cls.downtime_expire_ts < datetime.datetime.utcnow(),
+                cls.notification_type != 1,
+                cls.acknowledged == 0,
+                cls.assign_status == 0
+            ).all()
 
     @classmethod
     @tracer.start_as_current_span("update_exist_event")
     def update_exist_event(cls, event_id: int, data: dict):
         try:
-            session.query(cls).filter(
-                cls.alert_id == event_id
-            ).update(data)
-
-            session.commit()
+            with session.begin():
+                session.query(cls).filter(cls.alert_id == event_id).update(data)
         except Exception as err:
-            session.rollback()
             log.error(msg=f"Cannot update exist event in Active Alerts - {err}\nData: {data}")
+            raise
 
     @classmethod
     @tracer.start_as_current_span("delete_exist_event")
     def delete_exist_event(cls, event_id: int):
         try:
-            session.commit()
-            session.query(cls).filter(
-                cls.alert_id == event_id
-            ).delete(synchronize_session='fetch')
-
-            session.commit()
+            with session.begin():
+                session.query(cls).filter(cls.alert_id == event_id).delete(synchronize_session='fetch')
         except Exception as err:
-            session.rollback()
             log.error(msg=f"Cannot delete exist event from Active Alerts - {err}\nEvent ID: {event_id}")
-
+            raise

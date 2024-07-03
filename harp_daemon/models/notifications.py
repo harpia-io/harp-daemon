@@ -76,62 +76,49 @@ class Notifications(Base):
     @classmethod
     @tracer.start_as_current_span("get_notification")
     def get_notification(cls, ms_alert_id, alert_name, source, studio, ms, object_name):
-        session.commit()
-        queries = session.query(cls).filter(
-            cls.ms_alert_id == ms_alert_id,
-            cls.name == alert_name,
-            cls.source == source,
-            cls.studio == studio,
-            cls.ms == ms,
-            cls.object_name == object_name
-        ).all()
-
-        return queries
+        with session.begin():
+            return session.query(cls).filter(
+                cls.ms_alert_id == ms_alert_id,
+                cls.name == alert_name,
+                cls.source == source,
+                cls.studio == studio,
+                cls.ms == ms,
+                cls.object_name == object_name
+            ).all()
 
     @classmethod
     @tracer.start_as_current_span("get_notification_by_id")
     def get_notification_by_id(cls, event_id):
-        session.commit()
-        queries = session.query(cls).filter(
-            cls.id == event_id
-        ).all()
-
-        return queries
+        with session.begin():
+            return session.query(cls).filter(cls.id == event_id).all()
 
     @classmethod
     @tracer.start_as_current_span("get_active_event_by_environment")
     def get_active_event_by_environment(cls, environment_id):
-        session.commit()
-        queries = session.query(cls).filter(
-            cls.studio == environment_id
-        ).all()
-
-        return queries
+        with session.begin():
+            return session.query(cls).filter(cls.studio == environment_id).all()
 
     @classmethod
     @tracer.start_as_current_span("update_exist_event")
     @retry(Exception, tries=3, timeout_secs=0.1)
     def update_exist_event(cls, event_id: int, data: dict):
         try:
-            session.query(cls).filter(
-                cls.id == event_id
-            ).update(data)
-
-            session.commit()
+            with session.begin():
+                session.query(cls).filter(cls.id == event_id).update(data)
         except Exception as err:
-            session.rollback()
             log.error(msg=f"Cannot update exist event in Notifications - {err}\nalert_id: {event_id}\nData: {data}")
+            raise
 
     @classmethod
     @tracer.start_as_current_span("add_new_event")
     def add_new_event(cls, data: dict):
         notification = Notifications(**data)
         try:
-            session.add(notification)
-            session.commit()
+            with session.begin():
+                session.add(notification)
         except Exception as err:
-            session.rollback()
             log.error(msg=f"Cannot add new event to Notifications - {err}\nData: {data}")
+            raise
 
         return notification.json()
 
@@ -139,10 +126,8 @@ class Notifications(Base):
     @tracer.start_as_current_span("delete_notification")
     def delete_notification(cls, notification_id: int):
         try:
-            session.query(cls).filter(
-                cls.id == notification_id
-            ).delete(synchronize_session='fetch')
-            session.commit()
+            with session.begin():
+                session.query(cls).filter(cls.id == notification_id).delete(synchronize_session='fetch')
         except Exception as err:
-            session.rollback()
             log.error(msg=f"Cannot delete exist event to Notifications - {err}\nNotification ID: {notification_id}")
+            raise
